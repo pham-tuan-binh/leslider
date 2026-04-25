@@ -12,7 +12,7 @@
   <img src="demo.gif" alt="leslider rig running" width="720">
 </p>
 
-<p align="center"><b>Mount an SO-101 on a 7th-motor slider. The whole rig behaves like one robot in LeRobot.</b></p>
+<p align="center"><b>Mount an SO-101 on a 7th-motor slider.</b></p>
 
 Three teleop modes ship out of the box: keyboard arrows for the slider, the
 SO-101 leader arm with its base joint repurposed as the slider throttle, or
@@ -43,14 +43,14 @@ Parts you need **in addition to a stock SO-101 kit**. The kit already ships
 the six arm STS3215s, brackets, gripper, USB-to-TTL adapter, 12 V PSU, and
 cabling, all of which the slider rig reuses.
 
-| Item | Qty | Notes |
-| ---- | --- | ----- |
-| [STS3215 Feetech servo](https://www.waveshare.com/wiki/ST3215_Servo) (slider drive) | 1 | same model as the arm motors, shares the SO-101 bus. Bus cable for the slider is included with the servo. |
-| [2020 V-slot aluminum extrusion](https://vi.aliexpress.com/item/1005004784760394.html) | 1 | any length sized to your reach (300 to 500 mm is typical) |
-| [Gantry plate with V-wheels](https://vi.aliexpress.com/i/32985227943.html?gatewayAdapt=glo2vnm) | 1 | rides the 2020 extrusion as the carriage |
-| M3 bolts, 20 mm or longer | 4 | |
-| M5 bolts, 10 mm or longer, plus matching M5 nuts | 2 sets | |
-| M5 bolts (12 to 16 mm), plus M5 drop-in T-nuts sized for the 2020 V-slot | 2 sets | mounts the legs to the extrusion. M5 is the standard thread for 2020 T-nuts. |
+| Item                                                                                            | Qty    | Notes                                                                                                     |
+| ----------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------- |
+| [STS3215 Feetech servo](https://www.waveshare.com/wiki/ST3215_Servo) (slider drive)             | 1      | same model as the arm motors, shares the SO-101 bus. Bus cable for the slider is included with the servo. |
+| [2020 V-slot aluminum extrusion](https://vi.aliexpress.com/item/1005004784760394.html)          | 1      | any length sized to your reach (300 to 500 mm is typical)                                                 |
+| [Gantry plate with V-wheels](https://vi.aliexpress.com/i/32985227943.html?gatewayAdapt=glo2vnm) | 1      | rides the 2020 extrusion as the carriage                                                                  |
+| M3 bolts, 20 mm or longer                                                                       | 4      |                                                                                                           |
+| M5 bolts, 10 mm or longer, plus matching M5 nuts                                                | 2 sets |                                                                                                           |
+| M5 bolts (12 to 16 mm), plus M5 drop-in T-nuts sized for the 2020 V-slot                        | 2 sets | mounts the legs to the extrusion. M5 is the standard thread for 2020 T-nuts.                              |
 
 ---
 
@@ -70,12 +70,12 @@ slice them on a smaller bed or print them one at a time.
 
 Per rig, you need:
 
-| File | Qty | Notes |
-| ---- | --- | ----- |
-| `separate_components/leg.3mf` | 2 | one at each end of the V-slot extrusion |
-| `separate_components/base_mount.3mf` | 1 | sits on the gantry plate; holds the SO-101 base and the slider servo |
-| `separate_components/pinion.3mf` | 1 | press-fits onto the slider servo's output gear; engages the rack track |
-| `separate_components/track.3mf` | as needed | drop-in rack segments for the V-slot. Each segment is 20 mm long; print enough to span your extrusion and trim the last one if it overruns. |
+| File                                 | Qty       | Notes                                                                                                                                       |
+| ------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `separate_components/leg.3mf`        | 2         | one at each end of the V-slot extrusion                                                                                                     |
+| `separate_components/base_mount.3mf` | 1         | sits on the gantry plate; holds the SO-101 base and the slider servo                                                                        |
+| `separate_components/pinion.3mf`     | 1         | press-fits onto the slider servo's output gear; engages the rack track                                                                      |
+| `separate_components/track.3mf`      | as needed | drop-in rack segments for the V-slot. Each segment is 20 mm long; print enough to span your extrusion and trim the last one if it overruns. |
 
 ---
 
@@ -167,13 +167,13 @@ Every LeRobot CLI accepts `--config_path=<file.yaml>` (parsed by
 profile you stop retyping flags. The repo ships ready-made profiles in
 `configs/`:
 
-| Profile | What it runs |
-| ------- | ------------ |
-| `configs/teleop_keyboard.yaml` | Slider only, arrow keys |
-| `configs/teleop_full_rig.yaml` | SO-101 leader + slider throttle (full rig) |
-| `configs/calibrate_follower.yaml` | Calibrate the SO-101 + slider follower |
-| `configs/calibrate_leader.yaml` | Calibrate the stock SO-101 leader |
-| `configs/record.yaml` | Record a dataset with the full rig |
+| Profile                           | What it runs                               |
+| --------------------------------- | ------------------------------------------ |
+| `configs/teleop_keyboard.yaml`    | Slider only, arrow keys                    |
+| `configs/teleop_full_rig.yaml`    | SO-101 leader + slider throttle (full rig) |
+| `configs/calibrate_follower.yaml` | Calibrate the SO-101 + slider follower     |
+| `configs/calibrate_leader.yaml`   | Calibrate the stock SO-101 leader          |
+| `configs/record.yaml`             | Record a dataset with the full rig         |
 
 Edit each profile once with your ports and calibration IDs, then:
 
@@ -261,18 +261,18 @@ lerobot-teleoperate \
     --teleop.id=slider_kb
 ```
 
-| Key                | Effect                                                    |
-| ------------------ | --------------------------------------------------------- |
-| Left / Right arrow | Drive the slider one direction / the other               |
-| Up / Down arrow    | Trim the cruise velocity ±`speed_increment`              |
-| Space              | Emergency stop (zero velocity while held)                 |
-| ESC                | Disconnect                                                |
+| Key                | Effect                                      |
+| ------------------ | ------------------------------------------- |
+| Left / Right arrow | Drive the slider one direction / the other  |
+| Up / Down arrow    | Trim the cruise velocity ±`speed_increment` |
+| Space              | Emergency stop (zero velocity while held)   |
+| ESC                | Disconnect                                  |
 
 ### B. Full arm + slider, leader base drives the slider
 
 Use the `so101_with_slider_leader` teleop. The leader's `shoulder_pan` (base joint)
 becomes the slider throttle: under a ±20 dead zone the slider sits still,
-above it velocity ramps linearly to the cap. The follower's *own* base
+above it velocity ramps linearly to the cap. The follower's _own_ base
 (`shoulder_pan.pos`) is **not** copied from the leader; it starts at 0 and is
 adjusted from the keyboard. Every other arm joint is mirrored normally.
 
@@ -286,12 +286,12 @@ lerobot-teleoperate \
     --teleop.id=my_leader
 ```
 
-| Key                | Effect                                                              |
-| ------------------ | ------------------------------------------------------------------- |
+| Key                | Effect                                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------------- |
 | Leader base joint  | Drives `slider.vel` (0 inside ±`base_deadzone`, ramps to ±`slider_max_velocity` at ±`base_max`) |
-| Left / Right arrow | Trim follower base target by `follower_base_increment`              |
-| Space              | Reset follower base target to `follower_base_default` (0)           |
-| ESC                | Disconnect                                                          |
+| Left / Right arrow | Trim follower base target by `follower_base_increment`                                          |
+| Space              | Reset follower base target to `follower_base_default` (0)                                       |
+| ESC                | Disconnect                                                                                      |
 
 ### C. Full arm + slider, two-leader Python launcher
 
@@ -376,18 +376,18 @@ Inherits from `SOFollowerConfig` (port, cameras, `max_relative_target`,
 
 ### `SO101WithSliderLeaderConfig`
 
-| Field                     | Default  | Description                                                                                            |
-| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `port`                    | required | Serial port of the SO-101 leader arm.                                                                  |
-| `use_degrees`             | `True`   | Leader position unit. `base_deadzone` / `base_max` use the same unit.                                  |
+| Field                     | Default  | Description                                                                                                  |
+| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `port`                    | required | Serial port of the SO-101 leader arm.                                                                        |
+| `use_degrees`             | `True`   | Leader position unit. `base_deadzone` / `base_max` use the same unit.                                        |
 | `base_deadzone`           | `20.0`   | Symmetric dead zone around 0 on the leader base. `\|shoulder_pan\| <= base_deadzone` makes `slider.vel = 0`. |
-| `base_max`                | `90.0`   | `\|shoulder_pan\|` at which the slider saturates to `±slider_max_velocity`.                            |
-| `slider_max_velocity`     | `3000`   | Raw-tick velocity cap emitted on `slider.vel`.                                                         |
-| `invert_direction`        | `False`  | Swap slider direction relative to leader base sign.                                                    |
-| `follower_base_default`   | `0.0`    | Starting follower `shoulder_pan.pos` target (pre-keyboard).                                            |
-| `follower_base_increment` | `5.0`    | Step per Left/Right arrow press, in the follower's unit.                                               |
-| `follower_base_min`       | `-100.0` | Lower clamp for the follower base target.                                                              |
-| `follower_base_max`       | `100.0`  | Upper clamp for the follower base target.                                                              |
+| `base_max`                | `90.0`   | `\|shoulder_pan\|` at which the slider saturates to `±slider_max_velocity`.                                  |
+| `slider_max_velocity`     | `3000`   | Raw-tick velocity cap emitted on `slider.vel`.                                                               |
+| `invert_direction`        | `False`  | Swap slider direction relative to leader base sign.                                                          |
+| `follower_base_default`   | `0.0`    | Starting follower `shoulder_pan.pos` target (pre-keyboard).                                                  |
+| `follower_base_increment` | `5.0`    | Step per Left/Right arrow press, in the follower's unit.                                                     |
+| `follower_base_min`       | `-100.0` | Lower clamp for the follower base target.                                                                    |
+| `follower_base_max`       | `100.0`  | Upper clamp for the follower base target.                                                                    |
 
 ---
 
@@ -403,7 +403,7 @@ Inherits from `SOFollowerConfig` (port, cameras, `max_relative_target`,
   `DISPLAY` is unset, the listener is skipped and a warning is logged. Run
   inside a graphical session (or over X/Wayland forwarding).
 - **Slider kicks on startup.** The follower writes `Goal_Velocity = 0` inside
-  `configure()` *before* re-enabling torque. If you still see motion, confirm
+  `configure()` _before_ re-enabling torque. If you still see motion, confirm
   the previous session's `disconnect()` zeroed the velocity (it tries to,
   inside a `try/except` so other disconnect work still runs).
 - **Leader base feels too sensitive / not sensitive enough.** Tune
