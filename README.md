@@ -1,4 +1,4 @@
-<h1 align="center">leslider</h1>
+<h1 align="center">LeSlider</h1>
 
 <p align="center">
   <a href="https://github.com/huggingface/lerobot"><img src="https://img.shields.io/badge/LeRobot-plugin-FF6F00.svg" alt="LeRobot plugin"></a>
@@ -108,9 +108,7 @@ Per rig, you need:
    the chain continue through to the SO-101's USB-TTL controller. All seven
    motors share one bus back to the host. The order on the chain doesn't
    matter; only the IDs do.
-9. **Power.** Use the same 12 V supply if it has the headroom; if the
-   slider stalls or browns the arm out, give the slider its own supply with
-   a common ground.
+9. **Power.** Use the same power supply that comes with your SO101.
 
 ---
 
