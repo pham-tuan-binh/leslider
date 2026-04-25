@@ -1,6 +1,10 @@
-# Record a dataset with the full rig (leader drives follower via the slider).
+# Record a dataset with the full rig (leader mirrors arm; arrows drive slider in teleop).
 # Run with:  uv run lerobot-record --config_path=configs/record.yaml
 # Set HF_USER and the dataset repo id below before running.
+#
+# Cameras: lerobot-record saves frames from robot.get_observation() only — add them
+# under robot.cameras (not teleop.cameras). Uncomment the block below or copy from
+# configs/teleop_full_rig.yaml. Use: uv run lerobot-find-cameras
 
 robot:
   type: so101_slider_follower
@@ -8,6 +12,20 @@ robot:
   id: my_arm
   slider_id: 7
   slider_max_velocity: 3000
+  # Example: follower + extra USB (e.g. leader-mounted) — both land in the dataset:
+  # cameras:
+  #   follower:
+  #     type: opencv
+  #     index_or_path: 0
+  #     width: 640
+  #     height: 480
+  #     fps: 30
+  #   leader_wrist:
+  #     type: opencv
+  #     index_or_path: 1
+  #     width: 640
+  #     height: 480
+  #     fps: 30
 
 teleop:
   type: so101_with_slider_leader

@@ -1,5 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from lerobot.cameras import CameraConfig
 from lerobot.teleoperators.config import TeleoperatorConfig
 
 
@@ -9,33 +10,27 @@ class SO101WithSliderLeaderBaseConfig:
     port: str
 
     # Leader position units. True for degrees; False for normalized RANGE_M100_100
-    # (gripper is always 0..100). `base_deadzone` and `base_max` use the same unit.
+    # (gripper is always 0..100).
     use_degrees: bool = True
 
-    # Dead zone around 0 for the leader's shoulder_pan (base) joint. When
-    # |shoulder_pan| <= base_deadzone the slider is commanded to zero velocity.
-    base_deadzone: float = 20.0
+    # Optional USB / ZMQ / RealSense cameras mounted on the leader side. When you run
+    # `leslider-teleoperate --display_data=true`, frames are logged under
+    # `observation.teleop.<name>` in Rerun alongside the follower's cameras.
+    cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
-    # |shoulder_pan| at which slider velocity saturates to ±slider_max_velocity.
-    # Larger magnitudes are clamped to the saturation velocity.
-    base_max: float = 90.0
+    # --- Slider keyboard controls (same semantics as the former keyboard-only teleop) ---
+    # Raw-tick velocity magnitude when Left/Right is held (STS3215 Goal_Velocity scale).
+    cruise_velocity: int = 1500
 
-    # Raw-tick velocity cap emitted on slider.vel (the follower also clamps).
-    slider_max_velocity: int = 3000
+    # Amount added/removed by Up/Down arrows (per key press) in ticks/s.
+    speed_increment: int = 250
 
-    # Swap slider direction relative to leader base sign.
+    # Bounds for the interactive speed trim.
+    min_velocity: int = 100
+    max_velocity: int = 3000
+
+    # If True, invert the Left/Right mapping for slider.vel.
     invert_direction: bool = False
-
-    # Default follower shoulder_pan.pos target used before any keyboard input.
-    follower_base_default: float = 0.0
-
-    # Step applied per Left/Right key press to the follower base target,
-    # in the follower's own unit (degrees if follower.use_degrees else RANGE_M100_100).
-    follower_base_increment: float = 5.0
-
-    # Clamp range for the follower base target.
-    follower_base_min: float = -100.0
-    follower_base_max: float = 100.0
 
 
 @TeleoperatorConfig.register_subclass("so101_with_slider_leader")

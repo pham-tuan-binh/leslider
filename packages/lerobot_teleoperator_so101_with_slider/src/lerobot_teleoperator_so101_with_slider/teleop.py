@@ -4,6 +4,7 @@ import sys
 import time
 from typing import Any
 
+from lerobot.cameras import make_cameras_from_configs
 from lerobot.motors import Motor, MotorCalibration, MotorNormMode
 from lerobot.motors.feetech import FeetechMotorsBus, OperatingMode
 from lerobot.teleoperators.teleoperator import Teleoperator
@@ -33,22 +34,13 @@ ARM_MOTORS = ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wris
 
 
 class SO101WithSliderLeader(Teleoperator):
-    """SO-101 leader where the base joint drives a slider instead of the follower's base.
+    """SO-101 leader: all arm joints (including base) mirror the follower; slider from keyboard.
 
-    The leader's shoulder_pan position is converted to a slider velocity with a
-    symmetric dead zone (|pos| <= base_deadzone -> vel = 0). The follower's
-    shoulder_pan.pos is not taken from the leader; it is a keyboard-set target,
-    starting at `follower_base_default` and adjusted by Left/Right arrow keys.
-    All other arm joints are passed through from the leader as usual.
+    - Leader joint positions pass through to the follower, including `shoulder_pan` (base).
+    - Left/Right arrow (held): drive `slider.vel`; Up/Down: trim cruise speed; Space (held): stop slider.
+    - Optional `cameras` on the teleop config supply frames for `leslider-teleoperate --display_data=true`.
 
-    Action dict:
-      - shoulder_pan.pos    keyboard-controlled target for follower base
-      - shoulder_lift.pos   leader pass-through
-      - elbow_flex.pos      leader pass-through
-      - wrist_flex.pos      leader pass-through
-      - wrist_roll.pos      leader pass-through
-      - gripper.pos         leader pass-through
-      - slider.vel          derived from leader shoulder_pan with dead zone
+    Action dict matches the follower: six arm `.pos` keys plus `slider.vel`.
     """
 
     config_class = SO101WithSliderLeaderConfig
@@ -72,7 +64,8 @@ class SO101WithSliderLeader(Teleoperator):
         )
         self._held: set = set()
         self._listener = None
-        self._follower_base_pos: float = float(config.follower_base_default)
+        self._cruise = int(config.cruise_velocity)
+        self.cameras = make_cameras_from_configs(config.cameras)
 
     @property
     def action_features(self) -> dict[str, type]:
@@ -147,6 +140,11 @@ class SO101WithSliderLeader(Teleoperator):
 
     @check_if_already_connected
     def connect(self, calibrate: bool = True) -> None:
+        if not PYNPUT_AVAILABLE:
+            raise RuntimeError(
+                "pynput is required for SO101WithSliderLeader (arrow keys drive the slider). "
+                "Install with `uv add pynput`."
+            )
         self.bus.connect()
         if not self.is_calibrated and calibrate:
             logger.info(
@@ -155,44 +153,30 @@ class SO101WithSliderLeader(Teleoperator):
             self.calibrate()
         self.configure()
 
-        if PYNPUT_AVAILABLE:
-            self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
-            self._listener.start()
-            logger.info(
-                "%s connected. Leader base -> slider.vel (dead zone +/-%.1f). "
-                "Left/Right = trim follower base by %.2f, Space = reset to %.2f, ESC = disconnect.",
-                self,
-                self.config.base_deadzone,
-                self.config.follower_base_increment,
-                self.config.follower_base_default,
-            )
-        else:
-            logger.warning(
-                "%s connected without pynput; follower base will stay at %.2f.",
-                self,
-                self._follower_base_pos,
-            )
+        for cam in self.cameras.values():
+            cam.connect()
+
+        self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
+        self._listener.start()
+        logger.info(
+            "%s connected. Leader arm mirrors follower (including base). "
+            "Left/Right = slider (cruise=%d), Up/Down = trim speed, Space = slider stop, ESC = quit.%s",
+            self,
+            self._cruise,
+            f" Teleop cameras: {list(self.cameras)}." if self.cameras else "",
+        )
 
     def _on_press(self, key) -> None:
-        if key == keyboard.Key.left:
-            new = max(
-                self.config.follower_base_min,
-                self._follower_base_pos - self.config.follower_base_increment,
-            )
-            if new != self._follower_base_pos:
-                self._follower_base_pos = new
-                logger.info("Follower shoulder_pan target = %.2f", self._follower_base_pos)
-        elif key == keyboard.Key.right:
-            new = min(
-                self.config.follower_base_max,
-                self._follower_base_pos + self.config.follower_base_increment,
-            )
-            if new != self._follower_base_pos:
-                self._follower_base_pos = new
-                logger.info("Follower shoulder_pan target = %.2f", self._follower_base_pos)
-        elif key == keyboard.Key.space:
-            self._follower_base_pos = float(self.config.follower_base_default)
-            logger.info("Follower shoulder_pan target reset to %.2f", self._follower_base_pos)
+        if key == keyboard.Key.up:
+            new = min(self.config.max_velocity, self._cruise + self.config.speed_increment)
+            if new != self._cruise:
+                self._cruise = new
+                logger.info("Slider cruise velocity raised to %d", self._cruise)
+        elif key == keyboard.Key.down:
+            new = max(self.config.min_velocity, self._cruise - self.config.speed_increment)
+            if new != self._cruise:
+                self._cruise = new
+                logger.info("Slider cruise velocity lowered to %d", self._cruise)
         else:
             self._held.add(key)
 
@@ -203,31 +187,36 @@ class SO101WithSliderLeader(Teleoperator):
             if self.is_connected:
                 self.disconnect()
 
-    def _base_to_slider_vel(self, base_pos: float) -> float:
-        deadzone = self.config.base_deadzone
-        if abs(base_pos) <= deadzone:
-            return 0.0
-        span = max(1e-6, self.config.base_max - deadzone)
-        magnitude = min(abs(base_pos) - deadzone, span)
-        sign = 1.0 if base_pos > 0 else -1.0
-        direction = -1.0 if self.config.invert_direction else 1.0
-        return sign * direction * (magnitude / span) * self.config.slider_max_velocity
+    def get_visualization_observation(self) -> dict[str, Any]:
+        """BGR frames for Rerun when using `leslider-teleoperate --display_data=true`."""
+        if not self.cameras:
+            return {}
+        out: dict[str, Any] = {}
+        for name, cam in self.cameras.items():
+            frame = cam.read_latest()
+            if frame is not None:
+                out[f"teleop.{name}"] = frame
+        return out
 
     @check_if_not_connected
     def get_action(self) -> RobotAction:
         start = time.perf_counter()
         leader_pos = self.bus.sync_read("Present_Position")
 
-        base_pos = float(leader_pos.get("shoulder_pan", 0.0))
-        slider_vel = self._base_to_slider_vel(base_pos)
-
         action: RobotAction = {
-            f"{motor}.pos": float(val)
-            for motor, val in leader_pos.items()
-            if motor != "shoulder_pan"
+            f"{motor}.pos": float(val) for motor, val in leader_pos.items()
         }
-        action["shoulder_pan.pos"] = float(self._follower_base_pos)
-        action["slider.vel"] = float(slider_vel)
+
+        if keyboard.Key.space in self._held:
+            action["slider.vel"] = 0.0
+        else:
+            direction = -1 if self.config.invert_direction else 1
+            velocity = 0
+            if keyboard.Key.right in self._held:
+                velocity += direction * self._cruise
+            if keyboard.Key.left in self._held:
+                velocity -= direction * self._cruise
+            action["slider.vel"] = float(velocity)
 
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug("%s get_action: %.2fms", self, dt_ms)
@@ -241,5 +230,10 @@ class SO101WithSliderLeader(Teleoperator):
         if self._listener is not None:
             self._listener.stop()
             self._listener = None
+        for cam in self.cameras.values():
+            try:
+                cam.disconnect()
+            except Exception:
+                logger.exception("Error disconnecting teleop camera.")
         self.bus.disconnect()
         logger.info(f"{self} disconnected.")

@@ -3,14 +3,16 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lerobot_teleoperator_so101_with_slider"
+name = "leslider_teleoperate"
 version = "0.1.0"
-description = "LeRobot leader plugin: SO-101 leader mirrors the follower arm (including base); arrow keys drive the slider; optional teleop cameras for leslider-teleoperate."
+description = "LeSlider teleop CLI: lerobot-teleoperate fork that logs teleop cameras in Rerun when display_data is enabled."
 requires-python = ">=3.12"
 dependencies = [
     "lerobot[feetech]>=0.5.1",
-    "pynput>=1.7",
 ]
+
+[project.scripts]
+leslider-teleoperate = "leslider_teleoperate.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

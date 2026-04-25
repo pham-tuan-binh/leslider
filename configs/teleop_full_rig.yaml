@@ -1,6 +1,10 @@
-# Full SO-101 leader arm. Leader's base joint becomes the slider throttle,
-# all other joints pass through. Follower base is keyboard-trimmed.
-# Run with:  uv run lerobot-teleoperate --config_path=configs/teleop_full_rig.yaml
+# Full SO-101 leader: arm mirrors follower (base included); arrows drive the slider.
+# Rerun + console telemetry: set display_data: true below (or pass --display_data=true on the CLI).
+# Live view with teleop cameras needs leslider-teleoperate and teleop.cameras uncommented.
+#
+#   uv run leslider-teleoperate --config_path=configs/teleop_full_rig.yaml
+#
+# Stock lerobot-teleoperate still works but only logs robot (follower) cameras in Rerun.
 
 robot:
   type: so101_slider_follower
@@ -8,16 +12,35 @@ robot:
   id: my_arm
   slider_id: 7
   slider_max_velocity: 3000
+  # Example follower-mounted camera (shown as observation.<name>):
+  # cameras:
+  #   front:
+  #     type: opencv
+  #     index_or_path: 0
+  #     width: 640
+  #     height: 480
+  #     fps: 30
 
 teleop:
   type: so101_with_slider_leader
   port: /dev/tty.usbmodemLEADER
   id: my_leader
-  base_deadzone: 20.0
-  base_max: 90.0
-  slider_max_velocity: 3000
+  cruise_velocity: 1500
+  speed_increment: 250
+  min_velocity: 100
+  max_velocity: 3000
   invert_direction: false
-  follower_base_default: 0.0
-  follower_base_increment: 5.0
+  # Optional leader-side camera(s) for Rerun when display_data is true and using leslider-teleoperate:
+  # cameras:
+  #   leader_wrist:
+  #     type: opencv
+  #     index_or_path: 1
+  #     width: 640
+  #     height: 480
+  #     fps: 30
 
+# Top-level teleop script options (same as lerobot-teleoperate / leslider-teleoperate).
 display_data: false
+# display_ip: null
+# display_port: null
+# display_compressed_images: false

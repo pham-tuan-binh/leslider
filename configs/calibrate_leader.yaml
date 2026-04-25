@@ -2,6 +2,6 @@
 # Run with:  uv run lerobot-calibrate --config_path=configs/calibrate_leader.yaml
 
 teleop:
-  type: so101_leader
+  type: so101_with_slider_leader
   port: /dev/tty.usbmodemLEADER
   id: my_leader
