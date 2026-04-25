@@ -6,3 +6,6 @@ examples/livekit-portal/
 .env
 .env.*
 !.env.example
+
+# macOS Finder metadata.
+.DS_Store

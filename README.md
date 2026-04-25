@@ -36,57 +36,78 @@ registration needed.
 
 ## 1. Bill of Materials
 
-> **TODO** — finalise once parts are confirmed. Quantities below cover one
-> complete rig.
+Parts you need **in addition to a stock SO-101 kit**. The kit already ships
+the six arm STS3215s, brackets, gripper, USB-to-TTL adapter, 12 V PSU, and
+cabling, all of which the slider rig reuses.
 
 | Item | Qty | Notes |
 | ---- | --- | ----- |
-| SO-101 arm kit (6× STS3215, brackets, gripper) | 1 | stock LeRobot SO-101 |
-| STS3215 Feetech servo (slider drive) | 1 | same model as the arm motors so it shares the bus |
-| Linear rail + carriage | 1 | length sized to your reach (typical 300–500 mm) |
-| Timing belt + matching pulleys | 1 set | belt closed-loop or open with clamps |
-| M3 / M4 fasteners | — | for arm-to-carriage and rail-to-base mounting |
-| 12 V power supply | 1 | sized for arm + slider current peak |
-| USB-to-TTL adapter (Feetech / Waveshare) | 1 | the one shipped with SO-101 works |
-| Cabling | — | bus extension cable to reach the slider motor |
-
-Add or remove rows as the design settles.
+| [STS3215 Feetech servo](https://www.waveshare.com/wiki/ST3215_Servo) (slider drive) | 1 | same model as the arm motors, shares the SO-101 bus. Bus cable for the slider is included with the servo. |
+| [2020 V-slot aluminum extrusion](https://vi.aliexpress.com/item/1005004784760394.html) | 1 | any length sized to your reach (300 to 500 mm is typical) |
+| [Gantry plate with V-wheels](https://vi.aliexpress.com/i/32985227943.html?gatewayAdapt=glo2vnm) | 1 | rides the 2020 extrusion as the carriage |
+| M3 bolts, 20 mm or longer | 4 | |
+| M5 bolts, 10 mm or longer, plus matching M5 nuts | 2 sets | |
+| M5 bolts (12 to 16 mm), plus M5 drop-in T-nuts sized for the 2020 V-slot | 2 sets | mounts the legs to the extrusion. M5 is the standard thread for 2020 T-nuts. |
 
 ---
 
 ## 2. 3D-printed parts
 
-Printable files live in `3d/`. Drop STL/STEP files there; this table is the
-index.
+![Onshape model](3d/onshape.png)
 
-> **TODO** — fill in once parts are exported.
+Source CAD lives on [Onshape](https://cad.onshape.com/documents/7799de322e403a9ba91b0f22/w/05147a3d6feb75b69c2b0fa5/e/832d406a94d20085fd4bee6e?renderMode=0&uiState=69ed28f05b8e6e69be43006a),
+where you can spin the assembly, take measurements, or fork it for your own
+extrusion length, motor mount, or leg geometry. Exported printable files
+live in `3d/`.
 
-| File | Purpose | Material / infill | Qty |
-| ---- | ------- | ----------------- | --- |
-| `3d/carriage_top.stl` | Mounts the SO-101 base to the rail carriage | PETG / 40 % | 1 |
-| `3d/motor_mount.stl` | Holds the slider STS3215 to one end of the rail | PETG / 40 % | 1 |
-| `3d/idler_mount.stl` | Tensioning idler at the other end | PETG / 40 % | 1 |
-| `3d/belt_clamp.stl` | Clamps the belt ends to the carriage | PETG / 50 % | 2 |
+The fastest path is `3d/full_print.3mf`: open it in Bambu Studio (or any
+slicer that imports `.3mf`) and the whole plate is laid out for you.
+Individual parts also live in `3d/separate_components/` if you want to
+slice them on a smaller bed or print them one at a time.
 
-Print orientation, supports, and any hardware inserts go in the per-file
-notes once the files are added.
+Per rig, you need:
+
+| File | Qty | Notes |
+| ---- | --- | ----- |
+| `separate_components/leg.3mf` | 2 | one at each end of the V-slot extrusion |
+| `separate_components/base_mount.3mf` | 1 | sits on the gantry plate; holds the SO-101 base and the slider servo |
+| `separate_components/pinion.3mf` | 1 | press-fits onto the slider servo's output gear; engages the rack track |
+| `separate_components/track.3mf` | as needed | drop-in rack segments for the V-slot. Each segment is 20 mm long; print enough to span your extrusion and trim the last one if it overruns. |
 
 ---
 
 ## 3. Assembly
 
-1. **Print the parts** in `3d/` and clean up any supports.
-2. **Mount the slider motor** to one end of the rail using `motor_mount.stl`,
-   the idler to the other end, and route the belt around both pulleys.
-3. **Bolt the SO-101 base** onto `carriage_top.stl` and slide it onto the
-   carriage. Clamp the belt to the carriage with `belt_clamp.stl` so the
-   slider motor pulls the arm linearly.
-4. **Daisy-chain the bus.** All seven STS3215s share one Feetech bus —
-   chain the slider motor onto the SO-101 arm bus. The order on the chain
-   doesn't matter; only the IDs do.
-5. **Power.** Use the same 12 V supply if it has the headroom; if the slider
-   stalls or browns the arm out, give the slider its own supply with a
-   common ground.
+1. **Print the parts.** Use `3d/full_print.3mf` for the all-in-one plate, or
+   slice the individual files in `3d/separate_components/`. Quantities: 2
+   legs, 1 base mount, 1 pinion, plus enough 20 mm track segments to span
+   your extrusion (cut the last one to length if it overruns).
+2. **Lay the rack track.** Slide the printed track segments into the
+   top-facing channel of the V-slot extrusion. They sit directly under
+   where the base mount will land, so the slider servo's pinion drops
+   straight into the rack.
+3. **Slide the gantry plate** onto the V-slot so its V-wheels engage the
+   side channels. Do this before the legs go on, so the plate can slide in
+   from one open end.
+4. **Bolt the legs** to each end of the extrusion. Per leg: one M5 bolt
+   through the leg into one drop-in M5 T-nut sitting in the V-slot's side
+   channel.
+5. **Mount the base plate to the gantry.** The gantry plate has two M5
+   holes spaced 20 mm apart; align the base mount over them and secure with
+   two M5 bolts plus M5 nuts on the underside.
+6. **Bolt the SO-101 base** to the base mount with four M3 bolts (20 mm or
+   longer) through the four screw holes in the SO-101's base bracket.
+7. **Drop the slider STS3215** into the cutout on the base mount, slide the
+   printed pinion onto the servo's output gear so it engages the rack
+   track, and secure the servo with the screws that ship in its package.
+8. **Daisy-chain the slider** onto the SO-101 bus: plug the slider STS3215
+   into the spare port on the SO-101's base yaw motor, and let the rest of
+   the chain continue through to the SO-101's USB-TTL controller. All seven
+   motors share one bus back to the host. The order on the chain doesn't
+   matter; only the IDs do.
+9. **Power.** Use the same 12 V supply if it has the headroom; if the
+   slider stalls or browns the arm out, give the slider its own supply with
+   a common ground.
 
 ---
 
