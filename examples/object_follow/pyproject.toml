@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "object_follow"
+version = "0.1.0"
+description = "Drive the SO-101 slider so a YOLO-detected object stays centered in the camera frame, via a PID loop."
+requires-python = ">=3.10"
+dependencies = [
+    "lerobot",
+    "lerobot_robot_so101_slider",
+    "ultralytics>=8.3",
+    "opencv-python>=4.9",
+    "numpy>=1.26",
+]
+
+[project.scripts]
+object-follow = "object_follow.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv.sources]
+lerobot_robot_so101_slider = { path = "../../packages/lerobot_robot_so101_slider", editable = true }

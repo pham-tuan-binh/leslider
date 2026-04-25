@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lerobot_robot_so101_slider"
+version = "0.1.0"
+description = "LeRobot follower plugin: SO-101 arm mounted on an STS3215-driven linear slider."
+requires-python = ">=3.10"
+dependencies = [
+    "lerobot",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,8 @@
+# Local-only example: hardcoded absolute paths to ~/workspace/livekit-portal
+# and a per-machine LiveKit Portal native build. Not portable.
+examples/livekit-portal/
+
+# Secrets and per-machine env overrides anywhere in the tree.
+.env
+.env.*
+!.env.example
