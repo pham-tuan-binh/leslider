@@ -16,7 +16,7 @@
 
 One teleop mode ships for the full rig: the SO-101 leader mirrors the follower
 arm (including the base), while the keyboard drives the linear slider. Optional
-cameras on the leader feed Rerun when you use `leslider-teleoperate`. Print the
+cameras on the leader feed Rerun when you use `uv run leslider-teleoperate`. Print the
 parts, run `uv sync`, and you have a 7-DOF arm with linear travel that
 records datasets and runs policies the same way a stock SO-101 does.
 
@@ -115,7 +115,7 @@ Per rig, you need:
 ## 4. Install the plugins
 
 This repo is a [uv](https://docs.astral.sh/uv/) workspace: the root
-`pyproject.toml` declares `packages/*` as members, so a single `uv sync`
+`pyproject.toml` lists each workspace package explicitly, so a single `uv sync`
 installs `lerobot` along with every workspace package (robot plugin, teleop
 plugin, and `leslider_teleoperate`) editable into one
 shared `.venv`.
@@ -146,8 +146,8 @@ should see `so101_slider_follower` and `so101_with_slider_leader` as
 `--robot.type` / `--teleop.type` choices on every CLI invocation.
 
 For teleoperation with **follower plus leader camera streams** in Rerun, use
-`leslider-teleoperate` (same flags as `lerobot-teleoperate`, plus it merges
-`teleop.cameras` into the logged observation). Plain `lerobot-teleoperate` only
+`uv run leslider-teleoperate` (same flags as `uv run lerobot-teleoperate`, plus it merges
+`teleop.cameras` into the logged observation). Plain `uv run lerobot-teleoperate` only
 shows the robot's own `robot.cameras`.
 
 ### Find your serial ports
@@ -254,7 +254,7 @@ is driven only from the keyboard as `slider.vel` (same feel as the old
 keyboard-only mode).
 
 ```bash
-lerobot-teleoperate \
+uv run lerobot-teleoperate \
     --robot.type=so101_slider_follower \
     --robot.port=/dev/tty.usbmodemFOLLOWER \
     --robot.id=my_arm \
@@ -273,8 +273,8 @@ lerobot-teleoperate \
 
 ### Live view: follower + teleop cameras in Rerun
 
-Upstream `lerobot-teleoperate` with `display_data: true` in the config (or
-`--display_data=true`) logs the robot observation only. To also stream
+When you run `uv run lerobot-teleoperate` with `display_data: true` in the config (or
+`--display_data=true`) it logs the robot observation only. To also stream
 **leader-side** USB cameras, run the bundled wrapper and add `teleop.cameras`
 in YAML (same shape as `robot.cameras`):
 
@@ -282,25 +282,25 @@ Set `display_data: true` in `configs/teleop_full_rig.yaml` (top level), or pass
 `--display_data=true` on the CLI to override.
 
 ```bash
-leslider-teleoperate --config_path=configs/teleop_full_rig.yaml
+uv run leslider-teleoperate --config_path=configs/teleop_full_rig.yaml
 ```
 
 Uncomment `robot.cameras` / `teleop.cameras` in `configs/teleop_full_rig.yaml` as needed.
 Follower cameras (`robot.cameras`) show up as `observation.<name>` everywhere.
-`teleop.cameras` is only merged when you use **`leslider-teleoperate`** with
-`display_data: true` (Rerun under `observation.teleop.<name>`); **`lerobot-record` does
-not read teleop cameras**—see [section 8](#8-record-datasets): put extra USB views on
+`teleop.cameras` is only merged when you use **`uv run leslider-teleoperate`** with
+`display_data: true` (Rerun under `observation.teleop.<name>`). **`uv run lerobot-record`**
+does not read teleop cameras—see [section 8](#8-record-datasets): put extra USB views on
 `robot.cameras` if you want them in the dataset.
 
 ---
 
 ## 8. Record datasets
 
-Same `lerobot-record` invocation as a stock SO-101, just point at the new
+Same `uv run lerobot-record` invocation as a stock SO-101, just point at the new
 robot type and `so101_with_slider_leader`:
 
 ```bash
-lerobot-record \
+uv run lerobot-record \
     --robot.type=so101_slider_follower \
     --robot.port=/dev/tty.usbmodemFOLLOWER \
     --robot.id=my_arm \
@@ -317,7 +317,7 @@ The dataset's action space includes `slider.vel`; observations include
 
 ### Recording with cameras
 
-`lerobot-record` only stores what comes from **`robot.get_observation()`**, so every
+`uv run lerobot-record` only stores what comes from **`robot.get_observation()`**, so every
 camera you want in the dataset must be listed under **`robot.cameras`** in
 `configs/record.yaml` (same OpenCV / RealSense / ZMQ entries as upstream LeRobot).
 Use `uv run lerobot-find-cameras` to pick `index_or_path` values.
@@ -325,7 +325,7 @@ Use `uv run lerobot-find-cameras` to pick `index_or_path` values.
 A camera physically mounted on the **leader** still goes in **`robot.cameras`**: it is
 just another USB device on the host; name it e.g. `leader_wrist` so it appears as
 `observation.leader_wrist` in the dataset. **`teleop.cameras`** is for live Rerun with
-`leslider-teleoperate` only and is **not** written by `lerobot-record`.
+`uv run leslider-teleoperate` only and is **not** written by `uv run lerobot-record`.
 
 ---
 
@@ -347,7 +347,7 @@ Inherits from `SOFollowerConfig` (port, cameras, `max_relative_target`,
 | ------------------ | ------------ | ----------------------------------------------------------------------------- |
 | `port`             | required     | Serial port of the SO-101 leader arm.                                         |
 | `use_degrees`      | `True`       | Leader joint units (gripper stays 0..100).                                    |
-| `cameras`          | `{}`         | Optional dict of `CameraConfig` entries for `leslider-teleoperate` + Rerun.   |
+| `cameras`          | `{}`         | Optional dict of `CameraConfig` entries for `uv run leslider-teleoperate` + Rerun. |
 | `cruise_velocity`  | `1500`       | Raw ticks/s magnitude when Left/Right is held.                                |
 | `speed_increment`  | `250`        | Cruise change per Up/Down tap.                                                |
 | `min_velocity`     | `100`        | Lower bound of cruise trim.                                                   |

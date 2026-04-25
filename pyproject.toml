@@ -11,7 +11,12 @@ dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/*"]
+# Explicit members so stray dirs under packages/ (e.g. old clones) never break uv sync.
+members = [
+    "packages/lerobot_robot_so101_slider",
+    "packages/lerobot_teleoperator_so101_with_slider",
+    "packages/leslider_teleoperate",
+]
 
 [tool.uv.sources]
 lerobot_robot_so101_slider = { workspace = true }
@@ -22,6 +27,6 @@ leslider_teleoperate = { workspace = true }
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# Meta-distribution: no Python modules at repo root; code lives under packages/*.
+# Meta-distribution: no Python modules at repo root; plugins live under packages/<name>/.
 [tool.setuptools]
 packages = []
