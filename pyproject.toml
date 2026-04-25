@@ -1,0 +1,29 @@
+[project]
+name = "leslider"
+version = "0.1.0"
+description = "SO-101 on a slider, for LeRobot. Three plugins driving one rig."
+requires-python = ">=3.12"
+dependencies = [
+    "lerobot",
+    "lerobot_robot_so101_slider",
+    "lerobot_teleoperator_keyboard_slider",
+    "lerobot_teleoperator_so101_with_slider",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+lerobot_robot_so101_slider = { workspace = true }
+lerobot_teleoperator_keyboard_slider = { workspace = true }
+lerobot_teleoperator_so101_with_slider = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# Root has no Python source: it exists only to group the three plugin
+# packages into one workspace. setuptools needs an empty package list to
+# build the meta-distribution without scanning for src/.
+[tool.setuptools]
+packages = []

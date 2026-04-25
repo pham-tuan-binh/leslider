@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from lerobot.teleoperators.config import TeleoperatorConfig
 
 
-@TeleoperatorConfig.register_subclass("slider_keyboard_leader")
+@TeleoperatorConfig.register_subclass("keyboard_slider_leader")
 @dataclass
-class SliderKeyboardLeaderConfig(TeleoperatorConfig):
+class KeyboardSliderLeaderConfig(TeleoperatorConfig):
     # Starting raw-tick velocity magnitude sent when an arrow key is held.
     # STS3215 Goal_Velocity is sign-magnitude; positive goes one way, negative the other.
     cruise_velocity: int = 1500

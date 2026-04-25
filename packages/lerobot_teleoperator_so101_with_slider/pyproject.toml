@@ -3,12 +3,12 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lerobot_teleoperator_so101_slider"
+name = "lerobot_teleoperator_so101_with_slider"
 version = "0.1.0"
 description = "LeRobot leader plugin: SO-101 leader arm where the base joint drives slider velocity with a dead zone; follower base is keyboard-controlled."
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    "lerobot",
+    "lerobot[feetech]>=0.5.1",
     "pynput>=1.7",
 ]
 

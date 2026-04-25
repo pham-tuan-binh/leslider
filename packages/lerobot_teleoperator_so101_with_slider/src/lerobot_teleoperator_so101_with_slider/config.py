@@ -4,11 +4,11 @@ from lerobot.teleoperators.config import TeleoperatorConfig
 
 
 @dataclass
-class SO101SliderLeaderBaseConfig:
+class SO101WithSliderLeaderBaseConfig:
     # Serial port of the SO-101 leader arm (shared by all six arm motors).
     port: str
 
-    # Leader position units. True → degrees; False → normalized RANGE_M100_100
+    # Leader position units. True for degrees; False for normalized RANGE_M100_100
     # (gripper is always 0..100). `base_deadzone` and `base_max` use the same unit.
     use_degrees: bool = True
 
@@ -38,7 +38,7 @@ class SO101SliderLeaderBaseConfig:
     follower_base_max: float = 100.0
 
 
-@TeleoperatorConfig.register_subclass("so101_slider_leader")
+@TeleoperatorConfig.register_subclass("so101_with_slider_leader")
 @dataclass
-class SO101SliderLeaderConfig(TeleoperatorConfig, SO101SliderLeaderBaseConfig):
+class SO101WithSliderLeaderConfig(TeleoperatorConfig, SO101WithSliderLeaderBaseConfig):
     pass

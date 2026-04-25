@@ -1,0 +1,8 @@
+# Calibrate the SO-101 + slider follower (six arm joints; slider is skipped).
+# Run with:  uv run lerobot-calibrate --config_path=configs/calibrate_follower.yaml
+
+robot:
+  type: so101_slider_follower
+  port: /dev/tty.usbmodemFOLLOWER
+  id: my_arm
+  slider_id: 7

@@ -1,0 +1,22 @@
+# Record a dataset with the full rig (leader drives follower via the slider).
+# Run with:  uv run lerobot-record --config_path=configs/record.yaml
+# Set HF_USER and the dataset repo id below before running.
+
+robot:
+  type: so101_slider_follower
+  port: /dev/tty.usbmodemFOLLOWER
+  id: my_arm
+  slider_id: 7
+  slider_max_velocity: 3000
+
+teleop:
+  type: so101_with_slider_leader
+  port: /dev/tty.usbmodemLEADER
+  id: my_leader
+
+dataset:
+  repo_id: my_user/leslider_demo
+  num_episodes: 5
+  single_task: "slide and grab"
+
+display_data: false

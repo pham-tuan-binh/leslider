@@ -86,7 +86,7 @@ class SO101SliderFollower(Robot):
     @property
     def is_calibrated(self) -> bool:
         # Only the arm joints are calibrated. The slider is a continuous-rotation
-        # motor driven in velocity mode, so its position calibration is meaningless —
+        # motor driven in velocity mode, so its position calibration is meaningless;
         # we skip it instead of writing synthetic limits.
         on_motor = self.bus.read_calibration()
         cached = self.calibration

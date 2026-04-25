@@ -9,3 +9,11 @@ examples/livekit-portal/
 
 # macOS Finder metadata.
 .DS_Store
+
+# Python and uv build artifacts.
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+build/
+dist/

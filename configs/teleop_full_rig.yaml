@@ -1,0 +1,23 @@
+# Full SO-101 leader arm. Leader's base joint becomes the slider throttle,
+# all other joints pass through. Follower base is keyboard-trimmed.
+# Run with:  uv run lerobot-teleoperate --config_path=configs/teleop_full_rig.yaml
+
+robot:
+  type: so101_slider_follower
+  port: /dev/tty.usbmodemFOLLOWER
+  id: my_arm
+  slider_id: 7
+  slider_max_velocity: 3000
+
+teleop:
+  type: so101_with_slider_leader
+  port: /dev/tty.usbmodemLEADER
+  id: my_leader
+  base_deadzone: 20.0
+  base_max: 90.0
+  slider_max_velocity: 3000
+  invert_direction: false
+  follower_base_default: 0.0
+  follower_base_increment: 5.0
+
+display_data: false

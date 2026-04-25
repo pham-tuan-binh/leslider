@@ -7,13 +7,13 @@ from typing import Any
 from lerobot.teleoperators.teleoperator import Teleoperator
 from lerobot.types import RobotAction
 from lerobot.utils.decorators import check_if_already_connected, check_if_not_connected
-from lerobot.utils.import_utils import _pynput_available, require_package
+from lerobot.utils.import_utils import is_package_available
 
-from .config import SliderKeyboardLeaderConfig
+from .config import KeyboardSliderLeaderConfig
 
 logger = logging.getLogger(__name__)
 
-PYNPUT_AVAILABLE = _pynput_available
+PYNPUT_AVAILABLE = is_package_available("pynput")
 keyboard = None
 if PYNPUT_AVAILABLE:
     try:
@@ -27,7 +27,7 @@ if PYNPUT_AVAILABLE:
         logger.info(f"Could not import pynput: {e}")
 
 
-class SliderKeyboardLeader(Teleoperator):
+class KeyboardSliderLeader(Teleoperator):
     """Arrow-key teleop that emits slider.vel velocity commands.
 
     Controls:
@@ -40,11 +40,15 @@ class SliderKeyboardLeader(Teleoperator):
     SO-101-with-slider follower's expected action key.
     """
 
-    config_class = SliderKeyboardLeaderConfig
-    name = "slider_keyboard_leader"
+    config_class = KeyboardSliderLeaderConfig
+    name = "keyboard_slider_leader"
 
-    def __init__(self, config: SliderKeyboardLeaderConfig):
-        require_package("pynput", extra="pynput-dep")
+    def __init__(self, config: KeyboardSliderLeaderConfig):
+        if not is_package_available("pynput"):
+            raise ImportError(
+                "pynput is required for KeyboardSliderLeader. Install it with"
+                " `uv add pynput` or add it to your environment."
+            )
         super().__init__(config)
         self.config = config
         # Modified from the pynput listener thread; set add/discard is GIL-atomic.
@@ -79,7 +83,7 @@ class SliderKeyboardLeader(Teleoperator):
         pass
 
     @check_if_already_connected
-    def connect(self, calibrate: bool = True) -> None:  # noqa: ARG002 — match base signature
+    def connect(self, calibrate: bool = True) -> None:  # noqa: ARG002 (match base signature)
         if not PYNPUT_AVAILABLE:
             raise RuntimeError(
                 "pynput is not available in this environment; cannot run the keyboard leader."

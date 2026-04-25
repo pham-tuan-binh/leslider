@@ -9,13 +9,13 @@ from lerobot.motors.feetech import FeetechMotorsBus, OperatingMode
 from lerobot.teleoperators.teleoperator import Teleoperator
 from lerobot.types import RobotAction
 from lerobot.utils.decorators import check_if_already_connected, check_if_not_connected
-from lerobot.utils.import_utils import _pynput_available
+from lerobot.utils.import_utils import is_package_available
 
-from .config import SO101SliderLeaderConfig
+from .config import SO101WithSliderLeaderConfig
 
 logger = logging.getLogger(__name__)
 
-PYNPUT_AVAILABLE = _pynput_available
+PYNPUT_AVAILABLE = is_package_available("pynput")
 keyboard = None
 if PYNPUT_AVAILABLE:
     try:
@@ -32,12 +32,12 @@ if PYNPUT_AVAILABLE:
 ARM_MOTORS = ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")
 
 
-class SO101SliderLeader(Teleoperator):
+class SO101WithSliderLeader(Teleoperator):
     """SO-101 leader where the base joint drives a slider instead of the follower's base.
 
     The leader's shoulder_pan position is converted to a slider velocity with a
-    symmetric dead zone (|pos| <= base_deadzone → vel = 0). The follower's
-    shoulder_pan.pos is not taken from the leader — it is a keyboard-set target,
+    symmetric dead zone (|pos| <= base_deadzone -> vel = 0). The follower's
+    shoulder_pan.pos is not taken from the leader; it is a keyboard-set target,
     starting at `follower_base_default` and adjusted by Left/Right arrow keys.
     All other arm joints are passed through from the leader as usual.
 
@@ -51,10 +51,10 @@ class SO101SliderLeader(Teleoperator):
       - slider.vel          derived from leader shoulder_pan with dead zone
     """
 
-    config_class = SO101SliderLeaderConfig
-    name = "so101_slider_leader"
+    config_class = SO101WithSliderLeaderConfig
+    name = "so101_with_slider_leader"
 
-    def __init__(self, config: SO101SliderLeaderConfig):
+    def __init__(self, config: SO101WithSliderLeaderConfig):
         super().__init__(config)
         self.config = config
         norm_mode = MotorNormMode.DEGREES if config.use_degrees else MotorNormMode.RANGE_M100_100
@@ -159,7 +159,7 @@ class SO101SliderLeader(Teleoperator):
             self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
             self._listener.start()
             logger.info(
-                "%s connected. Leader base → slider.vel (dead zone ±%.1f). "
+                "%s connected. Leader base -> slider.vel (dead zone +/-%.1f). "
                 "Left/Right = trim follower base by %.2f, Space = reset to %.2f, ESC = disconnect.",
                 self,
                 self.config.base_deadzone,
@@ -168,7 +168,7 @@ class SO101SliderLeader(Teleoperator):
             )
         else:
             logger.warning(
-                "%s connected without pynput — follower base will stay at %.2f.",
+                "%s connected without pynput; follower base will stay at %.2f.",
                 self,
                 self._follower_base_pos,
             )

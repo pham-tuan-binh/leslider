@@ -6,9 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "object_follow"
 version = "0.1.0"
 description = "Drive the SO-101 slider so a YOLO-detected object stays centered in the camera frame, via a PID loop."
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    "lerobot",
+    "lerobot[feetech]>=0.5.1",
     "lerobot_robot_so101_slider",
     "ultralytics>=8.3",
     "opencv-python>=4.9",

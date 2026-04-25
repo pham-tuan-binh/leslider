@@ -1,0 +1,7 @@
+# Calibrate the stock SO-101 leader arm (used by teleop_full_rig.yaml).
+# Run with:  uv run lerobot-calibrate --config_path=configs/calibrate_leader.yaml
+
+teleop:
+  type: so101_leader
+  port: /dev/tty.usbmodemLEADER
+  id: my_leader

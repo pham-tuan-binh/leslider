@@ -1,33 +1,36 @@
-# leslider — SO-101 on a slider, for LeRobot
+<h1 align="center">leslider</h1>
 
-An SO-101 arm mounted on a linear slider driven by a seventh STS3215 Feetech
-motor on the same bus. Comes with three LeRobot plugins so the whole rig
-behaves like one robot.
+<p align="center">
+  <a href="https://github.com/huggingface/lerobot"><img src="https://img.shields.io/badge/LeRobot-plugin-FF6F00.svg" alt="LeRobot plugin"></a>
+  <a href="https://github.com/TheRobotStudio/SO-ARM100"><img src="https://img.shields.io/badge/hardware-SO--101-2EA44F.svg" alt="SO-101"></a>
+  <a href="https://docs.astral.sh/uv/"><img src="https://img.shields.io/badge/uv-managed-DE5FE9.svg" alt="uv managed"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue.svg" alt="Apache 2.0"></a>
+</p>
 
-```
-packages/
-├── lerobot_robot_so101_slider/            # follower: SO-101 + slider motor
-├── lerobot_teleoperator_slider_keyboard/  # leader:   arrow-key slider teleop
-└── lerobot_teleoperator_so101_slider/     # leader:   SO-101 arm; base joint → slider velocity
-3d/                                        # STL / STEP files for printable parts (see §3)
-```
+<p align="center">
+  <img src="demo.gif" alt="leslider rig running" width="720">
+</p>
 
-Plugin names start with `lerobot_robot_` / `lerobot_teleoperator_`, so LeRobot
-auto-imports them at startup
-(`lerobot.utils.import_utils.register_third_party_plugins`). No further
-registration needed.
+<p align="center"><b>Mount an SO-101 on a 7th-motor slider. The whole rig behaves like one robot in LeRobot.</b></p>
+
+Three teleop modes ship out of the box: keyboard arrows for the slider, the
+SO-101 leader arm with its base joint repurposed as the slider throttle, or
+any combination you stitch together in a few lines of Python. Print the
+parts, run `uv sync`, and you have a 7-DOF arm with linear travel that
+records datasets and runs policies the same way a stock SO-101 does.
 
 ---
 
 ## Build flow
 
-1. [Bill of Materials](#1-bill-of-materials) — what to buy
-2. [3D-printed parts](#2-3d-printed-parts) — what to print
-3. [Assembly](#3-assembly) — wiring and mounting
+1. [Bill of Materials](#1-bill-of-materials): what to buy
+2. [3D-printed parts](#2-3d-printed-parts): what to print
+3. [Assembly](#3-assembly): wiring and mounting
 4. [Install the plugins](#4-install-the-plugins)
 5. [Set the slider motor ID](#5-set-the-slider-motor-id)
 6. [Calibrate](#6-calibrate)
-7. [Run it](#7-run-it) — three teleop modes
+7. [Run it](#7-run-it): three teleop modes
 8. [Record datasets](#8-record-datasets)
 9. [Config reference](#9-config-reference)
 10. [Troubleshooting](#10-troubleshooting)
@@ -113,46 +116,102 @@ Per rig, you need:
 
 ## 4. Install the plugins
 
-Both leader plugins import `pynput` for keyboard handling, so install
-`lerobot` and the three packages in editable mode:
+This repo is a [uv](https://docs.astral.sh/uv/) workspace: the root
+`pyproject.toml` declares `packages/*` as members, so a single `uv sync`
+installs `lerobot` along with all three plugin packages editable into one
+shared `.venv`.
 
 ```bash
-pip install lerobot
-pip install -e packages/lerobot_robot_so101_slider
-pip install -e packages/lerobot_teleoperator_slider_keyboard
-pip install -e packages/lerobot_teleoperator_so101_slider
+git clone https://github.com/pham-tuan-binh/leslider
+cd leslider
+uv sync
 ```
 
-Verify discovery:
+That's it. There is nothing on PyPI for these plugins; the workspace is the
+only install path. Run lerobot CLIs through `uv run` so they pick up the
+workspace venv automatically:
 
 ```bash
-python -c "from lerobot.utils.import_utils import register_third_party_plugins; \
-           register_third_party_plugins(); \
-           from lerobot.robots.config import RobotConfig; \
-           from lerobot.teleoperators.config import TeleoperatorConfig; \
-           print('robots:',  sorted(RobotConfig.get_choices())); \
-           print('teleops:', sorted(TeleoperatorConfig.get_choices()))"
+uv run lerobot-teleoperate ...
+uv run lerobot-calibrate ...
+uv run lerobot-record ...
 ```
 
-You should see `so101_slider_follower`, `slider_keyboard_leader`, and
-`so101_slider_leader` in the lists.
+Or activate the venv once per shell with `source .venv/bin/activate` and
+call the same commands directly. Editing any file under `packages/*/src/`
+takes effect on the next import; no re-sync needed.
+
+LeRobot's plugin loader picks up the three packages by name prefix
+(`lerobot_robot_*` / `lerobot_teleoperator_*`), so once the venv is active
+you should see `so101_slider_follower`, `keyboard_slider_leader`, and
+`so101_with_slider_leader` available as `--robot.type` / `--teleop.type` choices
+on every CLI invocation.
+
+### Find your serial ports
+
+LeRobot ships a port-finder. Unplug the arm it asks about, press ENTER,
+plug it back in. Run it once per arm:
+
+```bash
+uv run lerobot-find-port
+```
+
+Note the paths it prints (`/dev/tty.usbmodem...` on macOS,
+`/dev/ttyACM...` on Linux). You'll paste them into the configs below or
+pass them on the command line.
+
+### Quick runs with a config file
+
+Every LeRobot CLI accepts `--config_path=<file.yaml>` (parsed by
+[draccus](https://github.com/dlwh/draccus)), so once you write a YAML
+profile you stop retyping flags. The repo ships ready-made profiles in
+`configs/`:
+
+| Profile | What it runs |
+| ------- | ------------ |
+| `configs/teleop_keyboard.yaml` | Slider only, arrow keys |
+| `configs/teleop_full_rig.yaml` | SO-101 leader + slider throttle (full rig) |
+| `configs/calibrate_follower.yaml` | Calibrate the SO-101 + slider follower |
+| `configs/calibrate_leader.yaml` | Calibrate the stock SO-101 leader |
+| `configs/record.yaml` | Record a dataset with the full rig |
+
+Edit each profile once with your ports and calibration IDs, then:
+
+```bash
+uv run lerobot-teleoperate --config_path=configs/teleop_keyboard.yaml
+uv run lerobot-teleoperate --config_path=configs/teleop_full_rig.yaml
+uv run lerobot-calibrate   --config_path=configs/calibrate_follower.yaml
+uv run lerobot-calibrate   --config_path=configs/calibrate_leader.yaml
+uv run lerobot-record      --config_path=configs/record.yaml
+```
+
+Override any field at the CLI for a one-off:
+
+```bash
+uv run lerobot-teleoperate --config_path=configs/teleop_keyboard.yaml \
+    --robot.port=/dev/tty.usbmodemSOMETHINGELSE
+```
+
+The long-form invocations in the sections below show exactly which flags
+each profile sets, in case you need to tweak.
 
 ---
 
 ## 5. Set the slider motor ID
 
-SO-101 already uses IDs 1..6, so the slider motor must be **7** (default) or
-anything in 8..253. Connect *only* the slider motor to the controller, then:
+The slider motor must live on a Feetech ID outside 1..6 (default: 7). The
+upstream `lerobot-setup-motors` rejects our `so101_slider_follower` type
+(its device whitelist is hardcoded), so the repo ships a small wrapper:
 
 ```bash
-lerobot-setup-motors \
-    --robot.type=so101_slider_follower \
-    --robot.port=/dev/tty.usbmodemXXXX
+uv run python scripts/setup_slider_motor.py \
+    --port=/dev/tty.usbmodemFOLLOWER \
+    --slider-id=7
 ```
 
-It walks each motor name in reverse. When it reaches `slider`, plug in the
-slider motor alone and press ENTER. Disconnect between steps so the
-broadcast-ping finds one motor at a time.
+Disconnect every motor except the slider before pressing ENTER. The script
+walks the bus in reverse (slider first), so press Ctrl-C after that step;
+the SO-101 arm motors come pre-configured from the kit.
 
 After that, daisy-chain everything back together.
 
@@ -160,11 +219,11 @@ After that, daisy-chain everything back together.
 
 ## 6. Calibrate
 
-Only the arm joints need calibration — the slider runs in continuous-rotation
+Only the arm joints need calibration. The slider runs in continuous-rotation
 velocity mode and is skipped.
 
 ```bash
-lerobot-calibrate \
+uv run lerobot-calibrate \
     --robot.type=so101_slider_follower \
     --robot.port=/dev/tty.usbmodemXXXX \
     --robot.id=my_arm
@@ -177,7 +236,7 @@ against IDs 1..6. The result lands in
 If you also use the SO-101 leader arm (mode B / C below), calibrate it once:
 
 ```bash
-lerobot-calibrate \
+uv run lerobot-calibrate \
     --teleop.type=so101_leader \
     --teleop.port=/dev/tty.usbmodemLEADER \
     --teleop.id=my_leader
@@ -189,7 +248,7 @@ lerobot-calibrate \
 
 Three teleop modes ship out of the box.
 
-### A. Slider only — keyboard
+### A. Slider only, keyboard
 
 Drive just the slider with the arrow keys; the arm holds position.
 
@@ -198,7 +257,7 @@ lerobot-teleoperate \
     --robot.type=so101_slider_follower \
     --robot.port=/dev/tty.usbmodemFOLLOWER \
     --robot.id=my_arm \
-    --teleop.type=slider_keyboard_leader \
+    --teleop.type=keyboard_slider_leader \
     --teleop.id=slider_kb
 ```
 
@@ -211,10 +270,10 @@ lerobot-teleoperate \
 
 ### B. Full arm + slider, leader base drives the slider
 
-Use the `so101_slider_leader` teleop. The leader's `shoulder_pan` (base joint)
+Use the `so101_with_slider_leader` teleop. The leader's `shoulder_pan` (base joint)
 becomes the slider throttle: under a ±20 dead zone the slider sits still,
 above it velocity ramps linearly to the cap. The follower's *own* base
-(`shoulder_pan.pos`) is **not** copied from the leader — it starts at 0 and is
+(`shoulder_pan.pos`) is **not** copied from the leader; it starts at 0 and is
 adjusted from the keyboard. Every other arm joint is mirrored normally.
 
 ```bash
@@ -222,7 +281,7 @@ lerobot-teleoperate \
     --robot.type=so101_slider_follower \
     --robot.port=/dev/tty.usbmodemFOLLOWER \
     --robot.id=my_arm \
-    --teleop.type=so101_slider_leader \
+    --teleop.type=so101_with_slider_leader \
     --teleop.port=/dev/tty.usbmodemLEADER \
     --teleop.id=my_leader
 ```
@@ -243,8 +302,8 @@ merged in Python:
 # run_both.py
 import time
 from lerobot_robot_so101_slider import SO101SliderFollower, SO101SliderFollowerConfig
-from lerobot_teleoperator_slider_keyboard import (
-    SliderKeyboardLeader, SliderKeyboardLeaderConfig,
+from lerobot_teleoperator_keyboard_slider import (
+    KeyboardSliderLeader, KeyboardSliderLeaderConfig,
 )
 from lerobot.teleoperators.so_leader import SOLeader, SOLeaderTeleopConfig
 
@@ -254,7 +313,7 @@ robot = SO101SliderFollower(SO101SliderFollowerConfig(
 arm_leader = SOLeader(SOLeaderTeleopConfig(
     port="/dev/tty.usbmodemLEADER", id="my_leader",
 ))
-slider_leader = SliderKeyboardLeader(SliderKeyboardLeaderConfig(
+slider_leader = KeyboardSliderLeader(KeyboardSliderLeaderConfig(
     id="slider_kb", cruise_velocity=1500,
 ))
 
@@ -280,7 +339,7 @@ lerobot-record \
     --robot.type=so101_slider_follower \
     --robot.port=/dev/tty.usbmodemFOLLOWER \
     --robot.id=my_arm \
-    --teleop.type=so101_slider_leader \
+    --teleop.type=so101_with_slider_leader \
     --teleop.port=/dev/tty.usbmodemLEADER \
     --teleop.id=my_leader \
     --dataset.repo_id=$USER/leslider_demo \
@@ -305,7 +364,7 @@ Inherits from `SOFollowerConfig` (port, cameras, `max_relative_target`,
 | `slider_id`           | `7`     | Feetech bus ID for the slider motor. Must not be in 1..6. Validated at construction.       |
 | `slider_max_velocity` | `3000`  | Clamp applied to `slider.vel` before writing `Goal_Velocity` (raw sign-magnitude ticks/s). |
 
-### `SliderKeyboardLeaderConfig`
+### `KeyboardSliderLeaderConfig`
 
 | Field              | Default | Description                                                         |
 | ------------------ | ------- | ------------------------------------------------------------------- |
@@ -315,13 +374,13 @@ Inherits from `SOFollowerConfig` (port, cameras, `max_relative_target`,
 | `max_velocity`     | `3000`  | Upper bound of cruise trim.                                         |
 | `invert_direction` | `False` | Swap Left ↔ Right if the slider is mounted flipped.                 |
 
-### `SO101SliderLeaderConfig`
+### `SO101WithSliderLeaderConfig`
 
 | Field                     | Default  | Description                                                                                            |
 | ------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `port`                    | —        | Serial port of the SO-101 leader arm.                                                                  |
+| `port`                    | required | Serial port of the SO-101 leader arm.                                                                  |
 | `use_degrees`             | `True`   | Leader position unit. `base_deadzone` / `base_max` use the same unit.                                  |
-| `base_deadzone`           | `20.0`   | Symmetric dead zone around 0 on the leader base. `\|shoulder_pan\| <= base_deadzone` → `slider.vel = 0`. |
+| `base_deadzone`           | `20.0`   | Symmetric dead zone around 0 on the leader base. `\|shoulder_pan\| <= base_deadzone` makes `slider.vel = 0`. |
 | `base_max`                | `90.0`   | `\|shoulder_pan\|` at which the slider saturates to `±slider_max_velocity`.                            |
 | `slider_max_velocity`     | `3000`   | Raw-tick velocity cap emitted on `slider.vel`.                                                         |
 | `invert_direction`        | `False`  | Swap slider direction relative to leader base sign.                                                    |
@@ -334,13 +393,13 @@ Inherits from `SOFollowerConfig` (port, cameras, `max_relative_target`,
 
 ## 10. Troubleshooting
 
-- **`ValueError: slider_id=… collides with an SO-101 arm motor`** — pick a
+- **`ValueError: slider_id=… collides with an SO-101 arm motor`**: pick a
   slider ID outside 1..6 (default is 7).
 - **Slider doesn't move.** Check the slider is in velocity mode after
   `configure()`: `bus.read("Operating_Mode", "slider")` should return `1`. If
   torque is off, confirm `disable_torque_on_disconnect` from the previous
   session didn't leave it disabled.
-- **Arrow keys do nothing.** `pynput` needs a display server on Linux — if
+- **Arrow keys do nothing.** `pynput` needs a display server on Linux. If
   `DISPLAY` is unset, the listener is skipped and a warning is logged. Run
   inside a graphical session (or over X/Wayland forwarding).
 - **Slider kicks on startup.** The follower writes `Goal_Velocity = 0` inside
@@ -348,6 +407,12 @@ Inherits from `SOFollowerConfig` (port, cameras, `max_relative_target`,
   the previous session's `disconnect()` zeroed the velocity (it tries to,
   inside a `try/except` so other disconnect work still runs).
 - **Leader base feels too sensitive / not sensitive enough.** Tune
-  `base_deadzone` and `base_max` on `SO101SliderLeaderConfig`. Wider dead
+  `base_deadzone` and `base_max` on `SO101WithSliderLeaderConfig`. Wider dead
   zone = harder to start moving; smaller `base_max` = full speed reached
   sooner.
+
+---
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
