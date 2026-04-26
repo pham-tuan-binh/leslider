@@ -371,6 +371,18 @@ Inherits from `SOFollowerConfig` (port, cameras, `max_relative_target`,
   `configure()` _before_ re-enabling torque. If you still see motion, confirm
   the previous session's `disconnect()` zeroed the velocity (it tries to,
   inside a `try/except` so other disconnect work still runs).
+- **Leader wrist roll barely moves / follower wrist roll shoots to a stop.**
+  Stock SO-101 calibration does **not** record a separate range for
+  `wrist_roll`: it keeps a synthetic encoder span `0..4095` and relies on the
+  homing step when you saved the “middle” pose. If that step was wrong, or the
+  servo’s **Min_Position_Limit / Max_Position_Limit** (Feetech EEPROM) are
+  tighter than the full span, goals from LeRobot (in **degrees**, then mapped
+  to raw ticks) can clamp against a limit and look like “always runs to the
+  end.” Re-run `uv run lerobot-calibrate` with **`c`** for a fresh calibration,
+  center **all** joints carefully on ENTER, then check the wrist roll servo in
+  the manufacturer tool: **position mode**, torque, ID **5**, and limits
+  spanning the real range. When testing by hand, compare **raw** Goal_Position
+  (0–4095) with **normalized** degrees from LeRobot—they are not the same number.
 
 ## License
 
