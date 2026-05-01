@@ -103,8 +103,7 @@ Per rig, you need:
 7. **Drop the slider STS3215** into the cutout on the base mount, slide the
    printed pinion onto the servo's output gear so it engages the rack
    track, and secure the servo with the screws that ship in its package.
-8. **Daisy-chain the slider** onto the SO-101 bus: the base yaw motor has no
-   spare port, so route the chain through the slider. Unplug the cable that
+8. **Daisy-chain the slider** onto the SO-101 bus: unplug the cable that
    runs from the base yaw to the USB-TTL controller, plug it into the slider
    STS3215, then run a new cable from the slider to the controller. The
    order on the bus is base yaw → slider → controller. All seven motors share
