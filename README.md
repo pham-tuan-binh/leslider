@@ -103,11 +103,12 @@ Per rig, you need:
 7. **Drop the slider STS3215** into the cutout on the base mount, slide the
    printed pinion onto the servo's output gear so it engages the rack
    track, and secure the servo with the screws that ship in its package.
-8. **Daisy-chain the slider** onto the SO-101 bus: plug the slider STS3215
-   into the spare port on the SO-101's base yaw motor, and let the rest of
-   the chain continue through to the SO-101's USB-TTL controller. All seven
-   motors share one bus back to the host. The order on the chain doesn't
-   matter; only the IDs do.
+8. **Daisy-chain the slider** onto the SO-101 bus: the base yaw motor has no
+   spare port, so route the chain through the slider. Unplug the cable that
+   runs from the base yaw to the USB-TTL controller, plug it into the slider
+   STS3215, then run a new cable from the slider to the controller. The
+   order on the bus is base yaw → slider → controller. All seven motors share
+   one bus back to the host; only the IDs matter for addressing.
 9. **Power.** Use the same power supply that comes with your SO101.
 
 ---
@@ -206,14 +207,14 @@ upstream `lerobot-setup-motors` rejects our `so101_slider_follower` type
 (its device whitelist is hardcoded), so the repo ships a small wrapper:
 
 ```bash
-uv run python scripts/setup_slider_motor.py \
+uv run scripts/setup_slider_motor.py \
     --port=/dev/tty.usbmodemFOLLOWER \
     --slider-id=7
 ```
 
-Disconnect every motor except the slider before pressing ENTER. The script
-walks the bus in reverse (slider first), so press Ctrl-C after that step;
-the SO-101 arm motors come pre-configured from the kit.
+Connect **only the slider motor** to the controller before pressing ENTER.
+The script opens a minimal bus with just the slider so no other motors are
+scanned or disturbed.
 
 After that, daisy-chain everything back together.
 
