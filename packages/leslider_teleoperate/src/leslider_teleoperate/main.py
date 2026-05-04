@@ -55,6 +55,7 @@ from lerobot.teleoperators import (  # noqa: F401
     so_leader,
     unitree_g1,
 )
+from lerobot.utils.errors import DeviceNotConnectedError
 from lerobot.utils.import_utils import register_third_party_plugins
 from lerobot.utils.robot_utils import precise_sleep
 from lerobot.utils.utils import init_logging, move_cursor_up
@@ -93,6 +94,9 @@ def teleop_loop(
 
         if robot.name == "unitree_g1":
             teleop.send_feedback(obs)
+
+        if hasattr(teleop, "process_input_events"):
+            teleop.process_input_events()
 
         raw_action = teleop.get_action()
 
@@ -160,7 +164,7 @@ def teleoperate(cfg: TeleoperateConfig):
             robot_observation_processor=robot_observation_processor,
             display_compressed_images=display_compressed_images,
         )
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, DeviceNotConnectedError):
         pass
     finally:
         if cfg.display_data:
