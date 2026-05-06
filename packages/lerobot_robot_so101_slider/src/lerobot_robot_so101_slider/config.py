@@ -15,3 +15,7 @@ class SO101SliderFollowerConfig(RobotConfig, SOFollowerConfig):
     # Goal_Velocity register is sign-magnitude in 12-bit resolution steps per
     # second; 3000 is roughly the comfortable upper bound.
     slider_max_velocity: int = 3000
+
+    # When True, adds `{motor}.current` (raw mA from Present_Current) for every
+    # motor to each observation. Disabled by default to avoid extra bus reads.
+    read_current: bool = False
