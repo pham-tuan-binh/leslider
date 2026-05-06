@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 SLIDER = "slider"
 ARM_MOTORS = ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")
+ALL_MOTORS = (*ARM_MOTORS, SLIDER)
 
 
 class SO101SliderFollower(Robot):
@@ -62,6 +63,9 @@ class SO101SliderFollower(Robot):
         ft = {f"{motor}.pos": float for motor in ARM_MOTORS}
         ft[f"{SLIDER}.pos"] = float  # raw ticks (continuous rotation)
         ft[f"{SLIDER}.vel"] = float  # raw ticks/s, sign-magnitude
+        if self.config.read_current:
+            for motor in ALL_MOTORS:
+                ft[f"{motor}.current"] = float  # raw mA, read from Present_Current
         return ft
 
     @property
@@ -204,6 +208,11 @@ class SO101SliderFollower(Robot):
         slider_vel = self.bus.read("Present_Velocity", SLIDER, normalize=False)
         obs_dict[f"{SLIDER}.pos"] = float(slider_pos)
         obs_dict[f"{SLIDER}.vel"] = float(slider_vel)
+
+        if self.config.read_current:
+            currents = self.bus.sync_read("Present_Current", list(ALL_MOTORS), normalize=False)
+            for motor, val in currents.items():
+                obs_dict[f"{motor}.current"] = float(val)
 
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
