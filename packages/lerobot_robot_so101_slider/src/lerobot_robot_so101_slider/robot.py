@@ -61,8 +61,9 @@ class SO101SliderFollower(Robot):
     @property
     def _motors_ft(self) -> dict[str, type]:
         ft = {f"{motor}.pos": float for motor in ARM_MOTORS}
-        ft[f"{SLIDER}.pos"] = float  # raw ticks (continuous rotation)
-        ft[f"{SLIDER}.vel"] = float  # raw ticks/s, sign-magnitude
+        # Slider is in wheel/velocity mode; Present_Position wraps and is not
+        # meaningful as an absolute position, so only velocity is reported.
+        ft[f"{SLIDER}.vel"] = float  # raw ticks/s from Present_Velocity
         if self.config.read_current:
             for motor in ALL_MOTORS:
                 ft[f"{motor}.current"] = float  # raw mA, read from Present_Current
@@ -202,11 +203,7 @@ class SO101SliderFollower(Robot):
         arm_pos = self.bus.sync_read("Present_Position", list(ARM_MOTORS))
         obs_dict = {f"{motor}.pos": val for motor, val in arm_pos.items()}
 
-        # Read slider position/velocity raw: it is a continuous rotation joint,
-        # so the calibrated normalization would be meaningless.
-        slider_pos = self.bus.read("Present_Position", SLIDER, normalize=False)
         slider_vel = self.bus.read("Present_Velocity", SLIDER, normalize=False)
-        obs_dict[f"{SLIDER}.pos"] = float(slider_pos)
         obs_dict[f"{SLIDER}.vel"] = float(slider_vel)
 
         if self.config.read_current:
