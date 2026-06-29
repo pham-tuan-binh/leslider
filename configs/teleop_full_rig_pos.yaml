@@ -1,0 +1,47 @@
+# Position-mode rig: SO-101 leader mirrors the follower arm (base included);
+# arrow keys drive the slider as a unified normalized position (slider.pos).
+# The slider's STS3215 runs in extended (multi-turn) position mode.
+#
+#   uv run leslider-teleoperate --config_path=configs/teleop_full_rig_pos.yaml
+#
+# Controls: Left/Right ramp slider.pos toward 0/100, Up/Down trim the step,
+# Space freezes the slider target, ESC quits.
+
+robot:
+  type: so101_slider_pos_follower
+  port: /dev/tty.usbmodemFOLLOWER
+  id: my_arm
+  slider_id: 7
+  # slider_goal_speed: 0   # raw ticks/s travel-speed cap in position mode (0 = full speed)
+  # Example follower-mounted camera (shown as observation.<name>):
+  # cameras:
+  #   front:
+  #     type: opencv
+  #     index_or_path: 0
+  #     width: 640
+  #     height: 480
+  #     fps: 30
+
+teleop:
+  type: so101_with_slider_pos_leader
+  port: /dev/tty.usbmodemLEADER
+  id: my_leader
+  slider_step: 1.0
+  step_increment: 0.25
+  min_step: 0.1
+  max_step: 5.0
+  initial_position: 0.0
+  invert_direction: false
+  # Optional leader-side camera(s) for Rerun when display_data is true:
+  # cameras:
+  #   leader_wrist:
+  #     type: opencv
+  #     index_or_path: 1
+  #     width: 640
+  #     height: 480
+  #     fps: 30
+
+display_data: false
+# display_ip: null
+# display_port: null
+# display_compressed_images: false

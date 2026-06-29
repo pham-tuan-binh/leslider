@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lerobot_teleoperator_so101_with_slider_pos"
+version = "0.1.0"
+description = "LeRobot leader plugin: SO-101 leader mirrors the follower arm (including base); arrow keys drive the slider as a normalized position target (slider.pos); optional teleop cameras for leslider-teleoperate."
+requires-python = ">=3.12"
+dependencies = [
+    "lerobot[feetech]>=0.5.1",
+    "pynput>=1.7",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

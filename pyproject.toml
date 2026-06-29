@@ -6,7 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     "lerobot",
     "lerobot_robot_so101_slider",
+    "lerobot_robot_so101_slider_pos",
     "lerobot_teleoperator_so101_with_slider",
+    "lerobot_teleoperator_so101_with_slider_pos",
     "leslider_teleoperate",
 ]
 
@@ -14,13 +16,17 @@ dependencies = [
 # Explicit members so stray dirs under packages/ (e.g. old clones) never break uv sync.
 members = [
     "packages/lerobot_robot_so101_slider",
+    "packages/lerobot_robot_so101_slider_pos",
     "packages/lerobot_teleoperator_so101_with_slider",
+    "packages/lerobot_teleoperator_so101_with_slider_pos",
     "packages/leslider_teleoperate",
 ]
 
 [tool.uv.sources]
 lerobot_robot_so101_slider = { workspace = true }
+lerobot_robot_so101_slider_pos = { workspace = true }
 lerobot_teleoperator_so101_with_slider = { workspace = true }
+lerobot_teleoperator_so101_with_slider_pos = { workspace = true }
 leslider_teleoperate = { workspace = true }
 
 [build-system]

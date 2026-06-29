@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lerobot_robot_so101_slider_pos"
+version = "0.1.0"
+description = "LeRobot follower plugin: SO-101 arm on an STS3215 slider driven in extended (multi-turn) position, unified as a normalized slider.pos joint."
+requires-python = ">=3.12"
+dependencies = [
+    "lerobot[feetech]>=0.5.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
