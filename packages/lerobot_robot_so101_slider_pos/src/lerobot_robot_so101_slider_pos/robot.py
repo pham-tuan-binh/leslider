@@ -19,10 +19,14 @@ ARM_MOTORS = ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wris
 ALL_MOTORS = (*ARM_MOTORS, SLIDER)
 
 # A Feetech STS3215 enters multi-turn ("extended position") mode when *both* angle
-# limits are zero. Present_Position / Goal_Position then span the 15-bit
-# sign-magnitude range (~±7 turns) instead of wrapping every revolution, so the
-# slider's leadscrew can travel several turns end to end.
+# limits are zero *and* bit 4 of the Phase register is set. Present_Position /
+# Goal_Position then span the 15-bit sign-magnitude range (~±7 turns) instead of
+# wrapping every revolution, so the slider's leadscrew can travel several turns end
+# to end. Zeroing the limits alone is not enough: without the phase bit the servo
+# stays single-turn and Present_Position wraps at 4095. This mode is not retained
+# across power cycles, so it must be re-applied on every connect (see configure()).
 MULTITURN_LIMIT = 0
+MULTITURN_PHASE_BIT = 0x10
 
 
 class SO101SliderPosFollower(Robot):
@@ -135,13 +139,17 @@ class SO101SliderPosFollower(Robot):
     def _enable_slider_multiturn(self) -> None:
         """Put the slider in position mode with multi-turn (extended position) on.
 
-        Zeroing both angle limits is what makes the STS3215 report and accept
-        positions across multiple turns instead of wrapping at one revolution.
+        Zeroing both angle limits *and* setting bit 4 of the Phase register is what
+        makes the STS3215 report and accept positions across multiple turns instead
+        of wrapping at one revolution. The phase bit is the easily-missed half:
+        without it the servo stays single-turn and Present_Position wraps at 4095.
         """
         self.bus.write("Operating_Mode", SLIDER, OperatingMode.POSITION.value)
         self.bus.write("Homing_Offset", SLIDER, 0, normalize=False)
         self.bus.write("Min_Position_Limit", SLIDER, MULTITURN_LIMIT, normalize=False)
         self.bus.write("Max_Position_Limit", SLIDER, MULTITURN_LIMIT, normalize=False)
+        phase = int(self.bus.read("Phase", SLIDER, normalize=False))
+        self.bus.write("Phase", SLIDER, phase | MULTITURN_PHASE_BIT, normalize=False)
 
     def _write_calibration(self, calibration: dict[str, MotorCalibration]) -> None:
         """Write calibration to the bus without clobbering the slider's mode.
