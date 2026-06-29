@@ -143,34 +143,27 @@ class SO101SliderPosFollower(Robot):
         self.bus.write("Min_Position_Limit", SLIDER, MULTITURN_LIMIT, normalize=False)
         self.bus.write("Max_Position_Limit", SLIDER, MULTITURN_LIMIT, normalize=False)
 
-    def calibrate(self) -> None:
-        """Calibrate all seven joints. Arm joints use the stock SO-101 procedure.
+    def _write_calibration(self, calibration: dict[str, MotorCalibration]) -> None:
+        """Write calibration to the bus without clobbering the slider's mode.
 
-        The slider's lower bound is fixed (``config.slider_range_min``), so only its
-        upper limit (the "cap") is recorded. The slider is first driven to the fixed
-        minimum under torque (``slider.pos = 0``), then torque is released so it can be
-        free-rolled by hand to its upper limit (``slider.pos = 100``), which is
-        recorded as ``range_max``. Software normalization maps everything in between,
-        so control is unified with the arm joints.
+        The stock ``bus.write_calibration`` pushes every motor's ``range_min`` /
+        ``range_max`` into its ``Min/Max_Position_Limit`` registers. That is wrong
+        for the slider on two counts: it runs in multi-turn (extended-position)
+        mode, where both limits must be ``0``, and its recorded ``range_min`` is a
+        negative multi-turn tick (``config.slider_range_min``) that the Feetech
+        serializer rejects outright ("Negative values are not allowed").
+
+        So we write only the arm motors' limits to the bus and leave the slider's
+        angle-limit registers to ``_enable_slider_multiturn()`` (called from
+        ``configure()``). The full dict — slider included — is still cached on the
+        bus so software normalization of ``slider.pos`` uses the recorded travel.
         """
-        if self.calibration:
-            user_input = input(
-                f"Press ENTER to use provided calibration file associated with the id {self.id}, "
-                f"or type 'c' and press ENTER to run calibration: "
-            )
-            if user_input.strip().lower() != "c":
-                logger.info(f"Writing calibration file associated with the id {self.id} to the motors")
-                self.bus.write_calibration(self.calibration)
-                return
+        arm_only = {m: c for m, c in calibration.items() if m != SLIDER}
+        self.bus.write_calibration(arm_only, cache=False)
+        self.bus.calibration = dict(calibration)
 
-        logger.info(f"\nRunning calibration of {self}")
-        self.bus.disable_torque()
-        for motor in ARM_MOTORS:
-            self.bus.write("Operating_Mode", motor, OperatingMode.POSITION.value)
-        # Enable multi-turn now so the slider's Present_Position accumulates past
-        # one revolution while the user moves it by hand during calibration.
-        self._enable_slider_multiturn()
-
+    def _calibrate_arm(self) -> dict[str, MotorCalibration]:
+        """Run the stock SO-101 arm calibration and return its calibration dict."""
         input(f"Move {self} arm to the middle of its range of motion and press ENTER....")
         homing_offsets = self.bus.set_half_turn_homings(list(ARM_MOTORS))
 
@@ -184,11 +177,27 @@ class SO101SliderPosFollower(Robot):
         range_mins[full_turn_motor] = 0
         range_maxes[full_turn_motor] = 4095
 
-        # Slider: the lower bound is a fixed constant (config.slider_range_min), so only
-        # the upper limit (the "cap") is calibrated. First drive the slider to that
-        # fixed minimum under torque (this is slider.pos = 0), then release torque and
-        # free-roll it by hand to its upper limit (slider.pos = 100), recording that
-        # encoder value as the cap.
+        arm_calibration: dict[str, MotorCalibration] = {}
+        for motor in ARM_MOTORS:
+            m = self.bus.motors[motor]
+            arm_calibration[motor] = MotorCalibration(
+                id=m.id,
+                drive_mode=0,
+                homing_offset=homing_offsets[motor],
+                range_min=range_mins[motor],
+                range_max=range_maxes[motor],
+            )
+        return arm_calibration
+
+    def _calibrate_slider(self) -> MotorCalibration:
+        """Calibrate the slider's upper limit and return its calibration entry.
+
+        The lower bound is a fixed constant (``config.slider_range_min``), so only
+        the upper limit (the "cap") is calibrated. First drive the slider to that
+        fixed minimum under torque (``slider.pos = 0``), then release torque and
+        free-roll it by hand to its upper limit (``slider.pos = 100``), recording
+        that encoder value as the cap.
+        """
         slider_min = self.config.slider_range_min
         input(
             f"The slider is about to move to its minimum ({slider_min}, slider.pos = 0). "
@@ -202,26 +211,14 @@ class SO101SliderPosFollower(Robot):
             "Torque released. Move the slider by hand to its upper limit "
             "(slider.pos = 100) and press ENTER...."
         )
-        upper_raw = int(self.bus.read("Present_Position", SLIDER, normalize=False))
-        slider_max = upper_raw
+        slider_max = int(self.bus.read("Present_Position", SLIDER, normalize=False))
         if slider_max <= slider_min:
             raise ValueError(
                 f"Slider upper-limit reading ({slider_max}) is not above the fixed minimum "
                 f"({slider_min}). Move the slider toward increasing encoder counts, or adjust "
                 "slider_range_min in the config."
             )
-
-        self.calibration = {}
-        for motor in ARM_MOTORS:
-            m = self.bus.motors[motor]
-            self.calibration[motor] = MotorCalibration(
-                id=m.id,
-                drive_mode=0,
-                homing_offset=homing_offsets[motor],
-                range_min=range_mins[motor],
-                range_max=range_maxes[motor],
-            )
-        self.calibration[SLIDER] = MotorCalibration(
+        return MotorCalibration(
             id=self.bus.motors[SLIDER].id,
             drive_mode=0,
             homing_offset=0,
@@ -229,7 +226,63 @@ class SO101SliderPosFollower(Robot):
             range_max=slider_max,
         )
 
-        self.bus.write_calibration(self.calibration)
+    def calibrate(self) -> None:
+        """Calibrate all seven joints. Arm joints use the stock SO-101 procedure.
+
+        The arm and slider are calibrated as two independent phases, and the arm
+        calibration is written to disk as soon as it is collected. If the slider
+        phase later fails (or is interrupted), the arm calibration survives: the
+        next run detects the saved arm-only calibration and offers to reuse it and
+        calibrate only the slider, so the arm sweep never has to be redone.
+        """
+        have_arm = all(m in self.calibration for m in ARM_MOTORS)
+        have_slider = SLIDER in self.calibration
+
+        if have_arm and have_slider:
+            user_input = input(
+                f"Press ENTER to use provided calibration file associated with the id {self.id}, "
+                f"or type 'c' and press ENTER to run calibration: "
+            )
+            if user_input.strip().lower() != "c":
+                logger.info(f"Writing calibration file associated with the id {self.id} to the motors")
+                self._write_calibration(self.calibration)
+                return
+
+        # A saved arm calibration with no slider means a prior run was interrupted
+        # after the arm phase (e.g. the slider step failed). Offer to keep it.
+        reuse_arm = False
+        if have_arm and not have_slider:
+            user_input = input(
+                "Found a saved arm calibration but no slider calibration "
+                "(an earlier run was likely interrupted). Press ENTER to keep the "
+                "arm calibration and calibrate only the slider, or type 'a' and "
+                "press ENTER to recalibrate the arm as well: "
+            )
+            reuse_arm = user_input.strip().lower() != "a"
+
+        logger.info(f"\nRunning calibration of {self}")
+        self.bus.disable_torque()
+        for motor in ARM_MOTORS:
+            self.bus.write("Operating_Mode", motor, OperatingMode.POSITION.value)
+        # Enable multi-turn now so the slider's Present_Position accumulates past
+        # one revolution while the user moves it by hand during calibration.
+        self._enable_slider_multiturn()
+
+        if reuse_arm:
+            arm_calibration = {m: self.calibration[m] for m in ARM_MOTORS}
+            logger.info("Reusing saved arm calibration; calibrating slider only.")
+        else:
+            arm_calibration = self._calibrate_arm()
+            # Persist the arm calibration immediately so a slider failure or
+            # interruption never forces redoing the arm sweep.
+            self.calibration = dict(arm_calibration)
+            self._write_calibration(self.calibration)
+            self._save_calibration()
+            logger.info(f"Arm calibration saved to {self.calibration_fpath}")
+
+        self.calibration = dict(arm_calibration)
+        self.calibration[SLIDER] = self._calibrate_slider()
+        self._write_calibration(self.calibration)
         self._save_calibration()
         print("Calibration saved to", self.calibration_fpath)
 
