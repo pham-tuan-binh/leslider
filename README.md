@@ -20,6 +20,12 @@ cameras on the leader feed Rerun when you use `uv run leslider-teleoperate`. Pri
 parts, run `uv sync`, and you have a 7-DOF arm with linear travel that
 records datasets and runs policies the same way a stock SO-101 does.
 
+The slider ships in two flavors. The default `so101_slider_follower` drives the
+slider in **velocity** mode (`slider.vel`, continuous rotation). A second variant,
+`so101_slider_pos_follower`, drives it in **extended (multi-turn) position** mode so
+the slider becomes a unified normalized `slider.pos` joint just like the arm — see
+[section 10](#10-position-mode-slider-extended-position).
+
 ---
 
 ## Build flow
@@ -33,7 +39,8 @@ records datasets and runs policies the same way a stock SO-101 does.
 7. [Run it](#7-run-it): full-rig teleop and live view
 8. [Record datasets](#8-record-datasets)
 9. [Config reference](#9-config-reference)
-10. [Troubleshooting](#10-troubleshooting)
+10. [Position-mode slider (extended position)](#10-position-mode-slider-extended-position)
+11. [Troubleshooting](#11-troubleshooting)
 
 ---
 
@@ -142,8 +149,9 @@ takes effect on the next import; no re-sync needed.
 
 LeRobot's plugin loader picks up the packages by name prefix
 (`lerobot_robot_*` / `lerobot_teleoperator_*`), so once the venv is active you
-should see `so101_slider_follower` and `so101_with_slider_leader` as
-`--robot.type` / `--teleop.type` choices on every CLI invocation.
+should see `so101_slider_follower` and `so101_with_slider_leader` (velocity mode),
+plus `so101_slider_pos_follower` and `so101_with_slider_pos_leader` (extended-position
+mode), as `--robot.type` / `--teleop.type` choices on every CLI invocation.
 
 For teleoperation with **follower plus leader camera streams** in Rerun, use
 `uv run leslider-teleoperate` (same flags as `uv run lerobot-teleoperate`, plus it merges
@@ -170,12 +178,14 @@ Every LeRobot CLI accepts `--config_path=<file.yaml>` (parsed by
 profile you stop retyping flags. The repo ships ready-made profiles in
 `configs/`:
 
-| Profile                           | What it runs                               |
-| --------------------------------- | ------------------------------------------ |
-| `configs/teleop_full_rig.yaml`    | SO-101 leader mirrors arm; arrows drive slider |
-| `configs/calibrate_follower.yaml` | Calibrate the SO-101 + slider follower     |
-| `configs/calibrate_leader.yaml`   | Calibrate the stock SO-101 leader          |
-| `configs/record.yaml`             | Record a dataset with the full rig         |
+| Profile                               | What it runs                                          |
+| ------------------------------------- | ----------------------------------------------------- |
+| `configs/teleop_full_rig.yaml`        | SO-101 leader mirrors arm; arrows drive slider (velocity) |
+| `configs/calibrate_follower.yaml`     | Calibrate the SO-101 + slider follower (velocity)     |
+| `configs/calibrate_leader.yaml`       | Calibrate the stock SO-101 leader                     |
+| `configs/record.yaml`                 | Record a dataset with the full rig                    |
+| `configs/teleop_full_rig_pos.yaml`    | Extended-position rig; arrows drive `slider.pos`      |
+| `configs/calibrate_follower_pos.yaml` | Calibrate the extended-position follower              |
 
 Edit each profile once with your ports and calibration IDs, then:
 
@@ -356,7 +366,117 @@ Inherits from `SOFollowerConfig` (port, cameras, `max_relative_target`,
 
 ---
 
-## 10. Troubleshooting
+## 10. Position-mode slider (extended position)
+
+The default rig drives the slider in velocity mode: you steer it with `slider.vel`
+and the slider never reports an absolute position. The **position-mode** variant
+instead runs the slider's STS3215 in **extended (multi-turn) position** mode, so the
+slider becomes a normalized `slider.pos` joint in `0..100` — control and dataset
+layout are then fully unified with the six arm joints (every joint is a `.pos`).
+
+Use these types in place of the velocity ones:
+
+| Velocity mode (default)       | Position mode (this section)        |
+| ----------------------------- | ----------------------------------- |
+| `so101_slider_follower`       | `so101_slider_pos_follower`         |
+| `so101_with_slider_leader`    | `so101_with_slider_pos_leader`      |
+
+### How the range works
+
+The slider's travel maps to a fixed lower bound and a calibrated upper cap: the
+range is **always `[-28762, cap]`** in raw multi-turn ticks. `range_min` is a fixed
+constant (`slider_range_min`, default `-28762`, near the most-negative multi-turn
+position) that maps to `slider.pos = 0`; only the upper cap is discovered during
+calibration and maps to `slider.pos = 100`. Multi-turn is enabled by zeroing the
+STS3215 angle limits (`configure()` does this on every connect); software
+normalization then maps `[-28762, cap] → [0, 100]`.
+
+### Calibrate
+
+```bash
+uv run lerobot-calibrate --config_path=configs/calibrate_follower_pos.yaml
+# or:
+uv run lerobot-calibrate \
+    --robot.type=so101_slider_pos_follower \
+    --robot.port=/dev/tty.usbmodemFOLLOWER \
+    --robot.id=my_arm
+```
+
+The six arm joints use the **stock SO-101 procedure** (center pose, then the
+range-of-motion sweep with `wrist_roll` kept at `0..4095`). The slider adds two
+steps at the end:
+
+1. **Drive to minimum.** A prompt warns the slider is about to move; press ENTER and
+   the motor drives under torque to `-28762` (the physical bottom, `slider.pos = 0`).
+   Wait for it to bottom out, then press ENTER.
+2. **Free-roll to the cap.** Torque releases so you can push the slider by hand to its
+   upper limit (`slider.pos = 100`); press ENTER to record that encoder value as the cap.
+
+Calibration is saved (all seven joints) under
+`~/.cache/huggingface/lerobot/calibration/robots/so101_slider_pos_follower/my_arm.json`.
+
+### Run it
+
+```bash
+uv run leslider-teleoperate --config_path=configs/teleop_full_rig_pos.yaml
+# or the long form:
+uv run lerobot-teleoperate \
+    --robot.type=so101_slider_pos_follower \
+    --robot.port=/dev/tty.usbmodemFOLLOWER \
+    --robot.id=my_arm \
+    --teleop.type=so101_with_slider_pos_leader \
+    --teleop.port=/dev/tty.usbmodemLEADER \
+    --teleop.id=my_leader
+```
+
+The leader has no physical slider, so the keyboard integrates a position target:
+
+| Key                | Effect                                                                       |
+| ------------------ | ---------------------------------------------------------------------------- |
+| Leader arm         | Mirrors the follower (base, lift, elbow, wrist, gripper).                    |
+| Left / Right arrow | Hold to ramp `slider.pos` toward `0` / `100` by `slider_step` per loop.      |
+| Up / Down arrow    | Tap to raise / lower `slider_step` (bounded by `min_step` / `max_step`).     |
+| Space              | Hold to freeze the slider target.                                            |
+| ESC                | Disconnect                                                                   |
+
+> **Heads up:** `slider.pos = 0` is the deep-retract extreme (`-28762`), not the
+> slider's rest pose, so the resting position reads as a positive value. On connect
+> the teleop's `initial_position` (default `0.0`) is commanded immediately, which
+> drives the slider toward the bottom — set it to roughly the slider's resting
+> `slider.pos`, and keep `max_relative_target` set to cap per-step motion.
+
+Datasets recorded with this variant carry `slider.pos` (not `slider.vel`) in both the
+action and observation space, alongside the six arm `.pos` joints.
+
+### Config reference
+
+**`SO101SliderPosFollowerConfig`** — inherits `SOFollowerConfig` (port, cameras,
+`max_relative_target`, `use_degrees`, `disable_torque_on_disconnect`) and adds:
+
+| Field              | Default  | Description                                                                                  |
+| ------------------ | -------- | -------------------------------------------------------------------------------------------- |
+| `slider_id`        | `7`      | Feetech bus ID for the slider motor. Must not be in 1..6.                                     |
+| `slider_range_min` | `-28762` | Fixed raw lower bound mapped to `slider.pos = 0`. Only the upper cap is calibrated.           |
+| `slider_goal_speed`| `0`      | Optional travel-speed cap (raw ticks/s) in position mode via `Goal_Velocity`. `0` = full speed. |
+| `read_current`     | `False`  | Adds `{motor}.current` (raw mA) to each observation for all seven motors.                     |
+
+**`SO101WithSliderPosLeaderConfig`**
+
+| Field              | Default  | Description                                                                 |
+| ------------------ | -------- | --------------------------------------------------------------------------- |
+| `port`             | required | Serial port of the SO-101 leader arm.                                       |
+| `use_degrees`      | `True`   | Leader joint units (gripper stays 0..100).                                  |
+| `cameras`          | `{}`     | Optional `CameraConfig` entries for `uv run leslider-teleoperate` + Rerun.  |
+| `slider_step`      | `1.0`    | Normalized units added to `slider.pos` per `get_action()` while Left/Right held. |
+| `step_increment`   | `0.25`   | `slider_step` change per Up/Down tap.                                       |
+| `min_step`         | `0.1`    | Lower bound of the step trim.                                               |
+| `max_step`         | `5.0`    | Upper bound of the step trim.                                               |
+| `initial_position` | `0.0`    | Starting `slider.pos` target on connect (`0` = fixed minimum).              |
+| `invert_direction` | `False`  | Swap Left ↔ Right if the slider is mounted flipped.                         |
+
+---
+
+## 11. Troubleshooting
 
 - **`ValueError: slider_id=… collides with an SO-101 arm motor`**: pick a
   slider ID outside 1..6 (default is 7).

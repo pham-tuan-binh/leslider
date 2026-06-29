@@ -15,7 +15,9 @@ resolution-markers = [
 [manifest]
 members = [
     "lerobot-robot-so101-slider",
+    "lerobot-robot-so101-slider-pos",
     "lerobot-teleoperator-so101-with-slider",
+    "lerobot-teleoperator-so101-with-slider-pos",
     "leslider",
     "leslider-teleoperate",
 ]
@@ -867,9 +869,35 @@ dependencies = [
 requires-dist = [{ name = "lerobot", extras = ["feetech"], specifier = ">=0.5.1" }]
 
 [[package]]
+name = "lerobot-robot-so101-slider-pos"
+version = "0.1.0"
+source = { editable = "packages/lerobot_robot_so101_slider_pos" }
+dependencies = [
+    { name = "lerobot", extra = ["feetech"] },
+]
+
+[package.metadata]
+requires-dist = [{ name = "lerobot", extras = ["feetech"], specifier = ">=0.5.1" }]
+
+[[package]]
 name = "lerobot-teleoperator-so101-with-slider"
 version = "0.1.0"
 source = { editable = "packages/lerobot_teleoperator_so101_with_slider" }
+dependencies = [
+    { name = "lerobot", extra = ["feetech"] },
+    { name = "pynput" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "lerobot", extras = ["feetech"], specifier = ">=0.5.1" },
+    { name = "pynput", specifier = ">=1.7" },
+]
+
+[[package]]
+name = "lerobot-teleoperator-so101-with-slider-pos"
+version = "0.1.0"
+source = { editable = "packages/lerobot_teleoperator_so101_with_slider_pos" }
 dependencies = [
     { name = "lerobot", extra = ["feetech"] },
     { name = "pynput" },
@@ -888,7 +916,9 @@ source = { editable = "." }
 dependencies = [
     { name = "lerobot" },
     { name = "lerobot-robot-so101-slider" },
+    { name = "lerobot-robot-so101-slider-pos" },
     { name = "lerobot-teleoperator-so101-with-slider" },
+    { name = "lerobot-teleoperator-so101-with-slider-pos" },
     { name = "leslider-teleoperate" },
 ]
 
@@ -896,7 +926,9 @@ dependencies = [
 requires-dist = [
     { name = "lerobot" },
     { name = "lerobot-robot-so101-slider", editable = "packages/lerobot_robot_so101_slider" },
+    { name = "lerobot-robot-so101-slider-pos", editable = "packages/lerobot_robot_so101_slider_pos" },
     { name = "lerobot-teleoperator-so101-with-slider", editable = "packages/lerobot_teleoperator_so101_with_slider" },
+    { name = "lerobot-teleoperator-so101-with-slider-pos", editable = "packages/lerobot_teleoperator_so101_with_slider_pos" },
     { name = "leslider-teleoperate", editable = "packages/leslider_teleoperate" },
 ]
 

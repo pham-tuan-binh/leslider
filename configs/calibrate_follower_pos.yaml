@@ -1,0 +1,12 @@
+# Calibrate the SO-101 + slider follower in position mode (all seven joints).
+# Arm joints use the stock SO-101 procedure. The slider's lower bound is fixed
+# (slider_range_min), so calibration only asks you to move it to its upper limit
+# (slider.pos = 100); the fixed minimum maps to slider.pos = 0.
+# Run with:  uv run lerobot-calibrate --config_path=configs/calibrate_follower_pos.yaml
+
+robot:
+  type: so101_slider_pos_follower
+  port: /dev/tty.usbmodemFOLLOWER
+  id: my_arm
+  slider_id: 7
+  # slider_range_min: -28762   # fixed raw floor mapped to slider.pos = 0
