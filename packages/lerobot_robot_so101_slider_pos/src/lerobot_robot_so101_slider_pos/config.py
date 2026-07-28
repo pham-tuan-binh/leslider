@@ -18,10 +18,13 @@ class SO101SliderPosFollowerConfig(RobotConfig, SOFollowerConfig):
     # and slider.pos = 100 maps to the calibrated upper limit.
     slider_range_min: int = -28762
 
-    # Optional speed cap (raw ticks/s) for the slider in position mode, written to
-    # Goal_Velocity. 0 (default) keeps the STS3215 default of moving to the goal at
-    # full speed. Set a positive value to slow the slider's travel.
-    slider_goal_speed: int = 0
+    # Travel-speed cap (raw ticks/s) for the slider in position mode, written to
+    # Goal_Velocity. 0 disables the cap and moves at full speed -- which is slower,
+    # not faster: uncapped moves command full PWM, peg Present_Load at 1000, and trip
+    # the servo's overload protection after ~2s, dropping torque to 20% for the rest
+    # of the move. Measured over a 5.7-turn stroke: 2000 -> 11.9s (load ~670, clean),
+    # 2400 -> 10.0s (load ~790, no margin), 2800 and uncapped -> trip at ~2s, 38s.
+    slider_goal_speed: int = 2000
 
     # When True, adds `{motor}.current` (raw mA from Present_Current) for every
     # motor to each observation. Disabled by default to avoid extra bus reads.

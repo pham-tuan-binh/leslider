@@ -448,6 +448,26 @@ The leader has no physical slider, so the keyboard integrates a position target:
 Datasets recorded with this variant carry `slider.pos` (not `slider.vel`) in both the
 action and observation space, alongside the six arm `.pos` joints.
 
+### Why the slider is speed-capped
+
+`slider_goal_speed` defaults to `2000` ticks/s, and removing the cap makes travel
+**slower**, not faster. With `Goal_Velocity = 0` the position controller commands full
+PWM, `Present_Load` pegs at 1000, and once load stays above `Overload_Torque` (80%) for
+`Protection_Time` (~2s) the servo clamps output to `Protective_Torque` (20%) for the
+remainder of the move. Measured over a 5.7-turn stroke:
+
+| `Goal_Velocity` | time | load (max / mean) | overload bit |
+| --- | --- | --- | --- |
+| `2000` | 11.9s | 775 / 669 | clean |
+| `2400` | 10.0s | 857 / 790 | clean, but no margin |
+| `2800` | 38.1s | 1000 / 239 | trips at ~2s |
+| `0` (uncapped) | 38s+ | 1000 / 239 | trips at ~2s |
+
+`2000` is the default because `2400`'s mean load sits ~10 counts under the trip
+threshold, so any extra friction tips it over -- and a trip costs roughly 4x the time.
+The cap is applied in the calibration path as well as `configure()`, since `calibrate()`
+runs first and its drive-to-minimum is the longest move the slider ever makes.
+
 ### Config reference
 
 **`SO101SliderPosFollowerConfig`** — inherits `SOFollowerConfig` (port, cameras,
@@ -457,7 +477,7 @@ action and observation space, alongside the six arm `.pos` joints.
 | ------------------ | -------- | -------------------------------------------------------------------------------------------- |
 | `slider_id`        | `7`      | Feetech bus ID for the slider motor. Must not be in 1..6.                                     |
 | `slider_range_min` | `-28762` | Fixed raw lower bound mapped to `slider.pos = 0`. Only the upper cap is calibrated.           |
-| `slider_goal_speed`| `0`      | Optional travel-speed cap (raw ticks/s) in position mode via `Goal_Velocity`. `0` = full speed. |
+| `slider_goal_speed`| `2000`   | Travel-speed cap (raw ticks/s) in position mode via `Goal_Velocity`. `0` = uncapped, which is *slower*: uncapped moves trip the servo's overload protection after ~2s and drop to 20% torque. See below. |
 | `read_current`     | `False`  | Adds `{motor}.current` (raw mA) to each observation for all seven motors.                     |
 
 **`SO101WithSliderPosLeaderConfig`**
