@@ -190,6 +190,25 @@ class SO101SliderPosFollower(Robot):
         phase = int(self.bus.read("Phase", SLIDER, normalize=False))
         self.bus.write("Phase", SLIDER, phase | MULTITURN_PHASE_BIT, normalize=False)
 
+    def _apply_slider_speed_cap(self) -> None:
+        """Cap the slider's travel speed so long moves do not trip overload protection.
+
+        Counter-intuitively this makes the slider *faster*. With Goal_Velocity = 0
+        (uncapped) the position controller commands full PWM, Present_Load pegs at
+        1000, and after Protection_Time (~2 s) above Overload_Torque (80%) the servo
+        clamps output to Protective_Torque (20%) for the rest of the move. Measured
+        over a 5.7-turn stroke: uncapped trips at ~2 s and takes 38 s, capped at 2000
+        holds ~670 load and takes 11.9 s.
+
+        Must be applied in the calibration path too, not just configure(): calibrate()
+        runs first, and its drive-to-minimum is the longest move the slider ever makes.
+        """
+        if self.config.slider_goal_speed:
+            # In position mode Goal_Velocity acts as the travel-speed limit.
+            self.bus.write(
+                "Goal_Velocity", SLIDER, self.config.slider_goal_speed, normalize=False
+            )
+
     def _write_calibration(self, calibration: dict[str, MotorCalibration]) -> None:
         """Write calibration to the bus without clobbering the slider's mode.
 
@@ -316,6 +335,9 @@ class SO101SliderPosFollower(Robot):
         # Enable multi-turn now so the slider's Present_Position accumulates past
         # one revolution while the user moves it by hand during calibration.
         self._enable_slider_multiturn()
+        # configure() has not run yet, so apply the speed cap here or the
+        # drive-to-minimum below trips overload protection and crawls.
+        self._apply_slider_speed_cap()
 
         if reuse_arm:
             arm_calibration = {m: self.calibration[m] for m in ARM_MOTORS}
@@ -356,9 +378,7 @@ class SO101SliderPosFollower(Robot):
             self.bus.write("P_Coefficient", SLIDER, 16)
             self.bus.write("I_Coefficient", SLIDER, 0)
             self.bus.write("D_Coefficient", SLIDER, 32)
-            if self.config.slider_goal_speed:
-                # In position mode Goal_Velocity acts as the travel-speed limit.
-                self.bus.write("Goal_Velocity", SLIDER, self.config.slider_goal_speed, normalize=False)
+            self._apply_slider_speed_cap()
 
     def setup_motors(self) -> None:
         for motor in reversed(list(self.bus.motors)):
