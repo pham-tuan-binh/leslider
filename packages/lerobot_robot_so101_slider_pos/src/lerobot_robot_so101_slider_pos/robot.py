@@ -4,6 +4,7 @@ from functools import cached_property
 
 from lerobot.cameras import make_cameras_from_configs
 from lerobot.motors import Motor, MotorCalibration, MotorNormMode
+from lerobot.motors.encoding_utils import encode_sign_magnitude
 from lerobot.motors.feetech import FeetechMotorsBus, OperatingMode
 from lerobot.robots.robot import Robot
 from lerobot.robots.utils import ensure_safe_goal_position
@@ -18,14 +19,40 @@ SLIDER = "slider"
 ARM_MOTORS = ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")
 ALL_MOTORS = (*ARM_MOTORS, SLIDER)
 
-# A Feetech STS3215 enters multi-turn ("extended position") mode when *both* angle
-# limits are zero *and* bit 4 of the Phase register is set. Present_Position /
-# Goal_Position then span the 15-bit sign-magnitude range (~±7 turns) instead of
-# wrapping every revolution, so the slider's leadscrew can travel several turns end
-# to end. Zeroing the limits alone is not enough: without the phase bit the servo
-# stays single-turn and Present_Position wraps at 4095. This mode is not retained
-# across power cycles, so it must be re-applied on every connect (see configure()).
-MULTITURN_LIMIT = 0
+# Multi-turn ("extended position") is enabled by *widening* the angle-limit registers,
+# not by zeroing them.
+#
+# WHY, and why the old recipe worked on some rigs: zeroing both limits is the Feetech
+# convention for "unlimited", and genuine STS3215 firmware honours it. A Hiwonder HX-30
+# -- a drop-in STS3215 replacement, but not a Feetech part -- does not. On the HX-30,
+# Min_Position_Limit = Max_Position_Limit = 0 restricts the allowed range to exactly
+# [0, 0], so every Goal_Position except 0 is rejected with bit 4 (angle) of the Status
+# register set. The two are hard to tell apart: both report Model_Number 777 and share
+# the STS/SMS control table. The observed tell is firmware + Angular_Resolution --
+# genuine Feetech read 3.9 / AR=1, the HX-30 reads 3.11 / AR=0.
+#
+# Widening the limits is verified on BOTH parts, which is why it is unconditional here:
+#
+#   genuine STS3215 (fw 3.9)   zeroed and widened both accept the full +/-30719 range,
+#                              and a driven 2-turn move tracked Present_Position to
+#                              ~7959 with no wrap under widened limits.
+#   Hiwonder HX-30 (fw 3.11)   zeroed accepts goal 0 only; widened accepts the full
+#                              +/-30719 range.
+#
+# Once bit 4 latches, the servo returns a non-zero error byte on *every* subsequent
+# packet -- including plain reads -- and lerobot treats any non-zero error as fatal. A
+# single bad goal therefore looks like the whole bus has died.
+#
+# The limits live in EPROM, so torque must be off (Lock = 0) when writing them.
+# Min/Max_Position_Limit are absent from lerobot's sign-magnitude encoding table, so a
+# negative lower limit has to be passed pre-encoded: lerobot's serializer rejects raw
+# negative ints ("Negative values are not allowed").
+#
+# Goals up to +/-30719 are accepted and +/-32766 is rejected, so 30719 is the widest safe
+# span. Bit 4 of Phase is *not* what gates any of this -- phase 12 and 28 behave
+# identically on both parts. It is left set only because it is harmless and was already
+# there.
+MULTITURN_MAX_TICKS = 30719
 MULTITURN_PHASE_BIT = 0x10
 
 
@@ -55,6 +82,13 @@ class SO101SliderPosFollower(Robot):
         if config.slider_id in range(1, 7):
             raise ValueError(
                 f"slider_id={config.slider_id} collides with an SO-101 arm motor (IDs 1..6)."
+            )
+
+        if abs(config.slider_range_min) > MULTITURN_MAX_TICKS:
+            raise ValueError(
+                f"slider_range_min={config.slider_range_min} is outside the multi-turn range the "
+                f"STS3215 accepts (+/-{MULTITURN_MAX_TICKS} ticks). The servo would reject "
+                "Goal_Position and set bit 4 of its Status register."
             )
 
         arm_norm = MotorNormMode.DEGREES if config.use_degrees else MotorNormMode.RANGE_M100_100
@@ -116,9 +150,9 @@ class SO101SliderPosFollower(Robot):
                 or cached[motor].homing_offset != on_motor[motor].homing_offset
             ):
                 return False
-        # The slider runs in multi-turn mode (angle limits forced to 0 by
-        # configure()), so its on-motor limits never match the recorded travel.
-        # We only require that a saved slider calibration exists.
+        # The slider runs in multi-turn mode (angle limits widened to the full
+        # span by configure()), so its on-motor limits never match the recorded
+        # travel. We only require that a saved slider calibration exists.
         return SLIDER in cached
 
     @check_if_already_connected
@@ -139,15 +173,20 @@ class SO101SliderPosFollower(Robot):
     def _enable_slider_multiturn(self) -> None:
         """Put the slider in position mode with multi-turn (extended position) on.
 
-        Zeroing both angle limits *and* setting bit 4 of the Phase register is what
-        makes the STS3215 report and accept positions across multiple turns instead
-        of wrapping at one revolution. The phase bit is the easily-missed half:
-        without it the servo stays single-turn and Present_Position wraps at 4095.
+        Widens the angle limits to the full multi-turn span so the servo accepts
+        Goal_Position across several revolutions. See the note on
+        ``MULTITURN_MAX_TICKS``: zeroing the limits does the opposite of what it
+        looks like -- it pins the allowed range to [0, 0].
         """
         self.bus.write("Operating_Mode", SLIDER, OperatingMode.POSITION.value)
         self.bus.write("Homing_Offset", SLIDER, 0, normalize=False)
-        self.bus.write("Min_Position_Limit", SLIDER, MULTITURN_LIMIT, normalize=False)
-        self.bus.write("Max_Position_Limit", SLIDER, MULTITURN_LIMIT, normalize=False)
+        self.bus.write(
+            "Min_Position_Limit",
+            SLIDER,
+            encode_sign_magnitude(-MULTITURN_MAX_TICKS, 15),
+            normalize=False,
+        )
+        self.bus.write("Max_Position_Limit", SLIDER, MULTITURN_MAX_TICKS, normalize=False)
         phase = int(self.bus.read("Phase", SLIDER, normalize=False))
         self.bus.write("Phase", SLIDER, phase | MULTITURN_PHASE_BIT, normalize=False)
 
@@ -157,9 +196,11 @@ class SO101SliderPosFollower(Robot):
         The stock ``bus.write_calibration`` pushes every motor's ``range_min`` /
         ``range_max`` into its ``Min/Max_Position_Limit`` registers. That is wrong
         for the slider on two counts: it runs in multi-turn (extended-position)
-        mode, where both limits must be ``0``, and its recorded ``range_min`` is a
-        negative multi-turn tick (``config.slider_range_min``) that the Feetech
-        serializer rejects outright ("Negative values are not allowed").
+        mode, where the limits must stay at the full span written by
+        ``_enable_slider_multiturn()`` rather than the recorded travel, and its
+        recorded ``range_min`` is a negative multi-turn tick
+        (``config.slider_range_min``) that the Feetech serializer rejects outright
+        ("Negative values are not allowed").
 
         So we write only the arm motors' limits to the bus and leave the slider's
         angle-limit registers to ``_enable_slider_multiturn()`` (called from
@@ -310,7 +351,7 @@ class SO101SliderPosFollower(Robot):
 
             # write_calibration() above (in calibrate / connect) writes the slider's
             # recorded travel into the angle-limit registers, which would cap it to a
-            # single turn. Re-enable multi-turn here so extended position works.
+            # single turn. Re-widen them here so extended position works.
             self._enable_slider_multiturn()
             self.bus.write("P_Coefficient", SLIDER, 16)
             self.bus.write("I_Coefficient", SLIDER, 0)
