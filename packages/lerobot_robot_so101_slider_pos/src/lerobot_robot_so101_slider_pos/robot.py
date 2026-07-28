@@ -22,29 +22,36 @@ ALL_MOTORS = (*ARM_MOTORS, SLIDER)
 # Multi-turn ("extended position") is enabled by *widening* the angle-limit registers,
 # not by zeroing them.
 #
-# HARDWARE CAVEAT: this was determined on a Hiwonder HX-30 -- a drop-in STS3215
-# replacement, but not a Feetech part (it reports model 777 / firmware 3.11 and shares
-# the STS/SMS control table). On the HX-30, Min_Position_Limit = Max_Position_Limit = 0
-# does NOT mean "unlimited": it restricts the allowed range to exactly [0, 0], so every
-# Goal_Position except 0 is rejected with bit 4 (angle) of the Status register set.
-# Genuine STS3215 firmware does appear to honour the zeroed-limits convention, so the
-# old recipe was not wrong everywhere -- it is wrong on this clone. Widening the limits
-# is the variant verified here; it has NOT been re-verified on a real Feetech STS3215.
+# WHY, and why the old recipe worked on some rigs: zeroing both limits is the Feetech
+# convention for "unlimited", and genuine STS3215 firmware honours it. A Hiwonder HX-30
+# -- a drop-in STS3215 replacement, but not a Feetech part -- does not. On the HX-30,
+# Min_Position_Limit = Max_Position_Limit = 0 restricts the allowed range to exactly
+# [0, 0], so every Goal_Position except 0 is rejected with bit 4 (angle) of the Status
+# register set. The two are hard to tell apart: both report Model_Number 777 and share
+# the STS/SMS control table. The observed tell is firmware + Angular_Resolution --
+# genuine Feetech read 3.9 / AR=1, the HX-30 reads 3.11 / AR=0.
 #
-# Note that once bit 4 latches, the servo returns a non-zero error byte on *every*
-# subsequent packet -- including plain reads -- and lerobot treats any non-zero error as
-# fatal. A single bad goal therefore looks like the whole bus has died.
+# Widening the limits is verified on BOTH parts, which is why it is unconditional here:
+#
+#   genuine STS3215 (fw 3.9)   zeroed and widened both accept the full +/-30719 range,
+#                              and a driven 2-turn move tracked Present_Position to
+#                              ~7959 with no wrap under widened limits.
+#   Hiwonder HX-30 (fw 3.11)   zeroed accepts goal 0 only; widened accepts the full
+#                              +/-30719 range.
+#
+# Once bit 4 latches, the servo returns a non-zero error byte on *every* subsequent
+# packet -- including plain reads -- and lerobot treats any non-zero error as fatal. A
+# single bad goal therefore looks like the whole bus has died.
 #
 # The limits live in EPROM, so torque must be off (Lock = 0) when writing them.
 # Min/Max_Position_Limit are absent from lerobot's sign-magnitude encoding table, so a
 # negative lower limit has to be passed pre-encoded: lerobot's serializer rejects raw
 # negative ints ("Negative values are not allowed").
 #
-# Measured on the HX-30: goals up to ±30719 are accepted and ±32766 is rejected, so
-# 30719 is the widest safe span. Bit 4 of Phase is *not* what gates any of this -- phase
-# 12 and 28 behave identically for goal acceptance. It is left set because it may still
-# affect whether Present_Position accumulates across turns rather than wrapping at 4095
-# (untested -- that needs physical rotation to confirm).
+# Goals up to +/-30719 are accepted and +/-32766 is rejected, so 30719 is the widest safe
+# span. Bit 4 of Phase is *not* what gates any of this -- phase 12 and 28 behave
+# identically on both parts. It is left set only because it is harmless and was already
+# there.
 MULTITURN_MAX_TICKS = 30719
 MULTITURN_PHASE_BIT = 0x10
 
