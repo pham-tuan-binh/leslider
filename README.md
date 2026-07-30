@@ -387,9 +387,28 @@ The slider's travel maps to a fixed lower bound and a calibrated upper cap: the
 range is **always `[-28762, cap]`** in raw multi-turn ticks. `range_min` is a fixed
 constant (`slider_range_min`, default `-28762`, near the most-negative multi-turn
 position) that maps to `slider.pos = 0`; only the upper cap is discovered during
-calibration and maps to `slider.pos = 100`. Multi-turn is enabled by zeroing the
-STS3215 angle limits (`configure()` does this on every connect); software
-normalization then maps `[-28762, cap] → [0, 100]`.
+calibration and maps to `slider.pos = 100`. Multi-turn is enabled by *widening* the
+STS3215 angle limits to the full ±30719 span (`configure()` ensures this on every
+connect); software normalization then maps `[-28762, cap] → [0, 100]`.
+
+### Position across reconnects
+
+The recorded range is in raw multi-turn ticks, which are only meaningful relative to
+the servo's revolution count. That count is firmware state kept alongside the
+single-turn absolute encoder, and on a Hiwonder HX-30 it is dropped whenever one of
+the position-related EPROM registers is written — even a write that changes nothing.
+Since `configure()` runs on every `connect()`, that used to mean reconnecting cost
+you the slider's position and forced a re-home, on a rig where the servos never lost
+power. Genuine Feetech firmware ignores same-value writes, so only HX-30 rigs saw it.
+
+`configure()` now reads every slider EPROM register before writing and skips the
+write when the value already matches, so a reconnect issues no EPROM writes at all
+and the position survives. If a write *is* genuinely needed (first connect after
+swapping or reflashing a servo), it logs that the multi-turn reference is no longer
+valid and the slider needs re-homing.
+
+Cutting power to the servos still loses the revolution count on any part, genuine or
+clone — recalibrate or re-home after a power cycle.
 
 ### Calibrate
 
