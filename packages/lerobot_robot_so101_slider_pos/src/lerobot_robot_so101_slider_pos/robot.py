@@ -8,7 +8,7 @@ from lerobot.motors.encoding_utils import encode_sign_magnitude
 from lerobot.motors.feetech import FeetechMotorsBus, OperatingMode
 from lerobot.robots.robot import Robot
 from lerobot.robots.utils import ensure_safe_goal_position
-from lerobot.types import RobotAction, RobotObservation
+from lerobot.lerobot_types import RobotAction, RobotObservation
 from lerobot.utils.decorators import check_if_already_connected, check_if_not_connected
 
 from .config import SO101SliderPosFollowerConfig

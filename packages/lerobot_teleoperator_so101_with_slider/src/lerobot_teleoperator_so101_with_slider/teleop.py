@@ -8,7 +8,7 @@ from lerobot.cameras import make_cameras_from_configs
 from lerobot.motors import Motor, MotorCalibration, MotorNormMode
 from lerobot.motors.feetech import FeetechMotorsBus, OperatingMode
 from lerobot.teleoperators.teleoperator import Teleoperator
-from lerobot.types import RobotAction
+from lerobot.lerobot_types import RobotAction
 from lerobot.utils.decorators import check_if_already_connected, check_if_not_connected
 from lerobot.utils.import_utils import is_package_available
 
