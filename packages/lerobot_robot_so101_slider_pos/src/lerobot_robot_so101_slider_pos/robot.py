@@ -170,6 +170,36 @@ class SO101SliderPosFollower(Robot):
         self.configure()
         logger.info(f"{self} connected.")
 
+    def _write_if_changed(self, data_name: str, motor: str, value: int) -> bool:
+        """Write an EPROM register only if it does not already hold ``value``.
+
+        Guards the slider's multi-turn lap counter across reconnects. The counter is
+        firmware state, not encoder state: the magnetic encoder is single-turn
+        absolute (0..4095) and the revolution count is kept alongside it. On a
+        Hiwonder HX-30 that count is dropped whenever one of the position-related
+        EPROM registers is *written*, even when the write does not change the stored
+        value -- so ``Present_Position`` collapses back into the single-turn range
+        and the recorded ``range_min``/``range_max`` ticks no longer refer to
+        anything physical. Genuine Feetech firmware treats a same-value write as
+        inert, which is why only the HX-30 rig loses its position.
+
+        ``configure()`` runs on every ``connect()``, so without this guard a plain
+        reconnect issues nine EPROM writes to the slider (five multi-turn registers,
+        the three PID coefficients, and ``Return_Delay_Time``) and forces a re-home.
+        Read back first and the reconnect writes nothing at all.
+
+        Compare in the register's own domain -- always call with ``normalize=False``
+        values. ``Homing_Offset`` is in the sign-magnitude encoding table (sign bit
+        11) so it reads back decoded, while ``Min/Max_Position_Limit`` are not, so
+        they read back as the raw 15-bit word and must be passed pre-encoded.
+
+        Returns True if a write was issued.
+        """
+        if int(self.bus.read(data_name, motor, normalize=False)) == value:
+            return False
+        self.bus.write(data_name, motor, value, normalize=False)
+        return True
+
     def _enable_slider_multiturn(self) -> None:
         """Put the slider in position mode with multi-turn (extended position) on.
 
@@ -177,18 +207,48 @@ class SO101SliderPosFollower(Robot):
         Goal_Position across several revolutions. See the note on
         ``MULTITURN_MAX_TICKS``: zeroing the limits does the opposite of what it
         looks like -- it pins the allowed range to [0, 0].
+
+        Every register here lives in the EPROM block (addresses 0..39), so all of
+        them go through ``_write_if_changed`` to keep a reconnect from resetting the
+        slider's accumulated multi-turn position.
         """
-        self.bus.write("Operating_Mode", SLIDER, OperatingMode.POSITION.value)
-        self.bus.write("Homing_Offset", SLIDER, 0, normalize=False)
-        self.bus.write(
-            "Min_Position_Limit",
-            SLIDER,
-            encode_sign_magnitude(-MULTITURN_MAX_TICKS, 15),
-            normalize=False,
-        )
-        self.bus.write("Max_Position_Limit", SLIDER, MULTITURN_MAX_TICKS, normalize=False)
         phase = int(self.bus.read("Phase", SLIDER, normalize=False))
-        self.bus.write("Phase", SLIDER, phase | MULTITURN_PHASE_BIT, normalize=False)
+        wrote = [
+            self._write_if_changed("Operating_Mode", SLIDER, OperatingMode.POSITION.value),
+            self._write_if_changed("Homing_Offset", SLIDER, 0),
+            self._write_if_changed(
+                "Min_Position_Limit", SLIDER, encode_sign_magnitude(-MULTITURN_MAX_TICKS, 15)
+            ),
+            self._write_if_changed("Max_Position_Limit", SLIDER, MULTITURN_MAX_TICKS),
+            self._write_if_changed("Phase", SLIDER, phase | MULTITURN_PHASE_BIT),
+        ]
+        if any(wrote):
+            logger.info(
+                f"Slider multi-turn EPROM updated ({sum(wrote)} register(s) written); "
+                "its multi-turn position reference is no longer valid and the slider "
+                "needs re-homing."
+            )
+
+    def _configure_motor_defaults(self) -> None:
+        """Apply lerobot's stock motor defaults without rewriting the slider's EPROM.
+
+        ``bus.configure_motors()`` writes ``Return_Delay_Time`` -- EPROM address 7 --
+        for every motor unconditionally, which is enough on its own to cost the
+        slider its lap counter on reconnect (see ``_write_if_changed``). Inlining the
+        loop lets the slider's copy go through the read-first guard.
+        ``Maximum_Acceleration`` (address 85) and ``Acceleration`` (address 41) sit
+        outside the EPROM block, so they stay unconditional writes.
+
+        Values match ``FeetechMotorsBus.configure_motors`` defaults: minimum return
+        delay, and maximum acceleration so the motors ramp quickly.
+        """
+        for motor in ALL_MOTORS:
+            if motor == SLIDER:
+                self._write_if_changed("Return_Delay_Time", motor, 0)
+            else:
+                self.bus.write("Return_Delay_Time", motor, 0)
+            self.bus.write("Maximum_Acceleration", motor, 254)
+            self.bus.write("Acceleration", motor, 254)
 
     def _apply_slider_speed_cap(self) -> None:
         """Cap the slider's travel speed so long moves do not trip overload protection.
@@ -359,7 +419,7 @@ class SO101SliderPosFollower(Robot):
 
     def configure(self) -> None:
         with self.bus.torque_disabled():
-            self.bus.configure_motors()
+            self._configure_motor_defaults()
             for motor in ARM_MOTORS:
                 self.bus.write("Operating_Mode", motor, OperatingMode.POSITION.value)
                 self.bus.write("P_Coefficient", motor, 16)
@@ -375,9 +435,10 @@ class SO101SliderPosFollower(Robot):
             # recorded travel into the angle-limit registers, which would cap it to a
             # single turn. Re-widen them here so extended position works.
             self._enable_slider_multiturn()
-            self.bus.write("P_Coefficient", SLIDER, 16)
-            self.bus.write("I_Coefficient", SLIDER, 0)
-            self.bus.write("D_Coefficient", SLIDER, 32)
+            # EPROM addresses 21..23, so read-first like the multi-turn registers.
+            self._write_if_changed("P_Coefficient", SLIDER, 16)
+            self._write_if_changed("I_Coefficient", SLIDER, 0)
+            self._write_if_changed("D_Coefficient", SLIDER, 32)
             self._apply_slider_speed_cap()
 
     def setup_motors(self) -> None:
